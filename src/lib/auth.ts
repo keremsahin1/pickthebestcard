@@ -12,11 +12,20 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user }) {
-      await seedDatabase();
-      await sql`
-        INSERT INTO users (id, email, name, image) VALUES (${user.id}, ${user.email}, ${user.name ?? null}, ${user.image ?? null})
-        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, image = EXCLUDED.image
-      `;
+      try {
+        await seedDatabase();
+      } catch (e) {
+        console.error('[NextAuth] seedDatabase error:', e);
+      }
+      try {
+        await sql`
+          INSERT INTO users (id, email, name, image) VALUES (${user.id}, ${user.email}, ${user.name ?? null}, ${user.image ?? null})
+          ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, image = EXCLUDED.image
+        `;
+      } catch (e) {
+        console.error('[NextAuth] user upsert error:', e);
+        // Still allow sign in even if DB write fails
+      }
       return true;
     },
     async session({ session, token }) {

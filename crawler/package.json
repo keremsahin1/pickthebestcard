@@ -1,0 +1,13 @@
+{
+  "name": "cardwise-crawler",
+  "version": "1.0.0",
+  "description": "CardWise benefit crawler — scrapes card issuer pages weekly",
+  "private": true,
+  "dependencies": {
+    "@neondatabase/serverless": "*",
+    "dotenv": "*",
+    "playwright-extra": "*",
+    "puppeteer-extra-plugin-stealth": "*",
+    "playwright": "*"
+  }
+}

@@ -11,13 +11,15 @@
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env.local') });
 
-const { chromium } = require('playwright-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const { chromium } = require('./node_modules/playwright-extra');
+const StealthPlugin = require('./node_modules/puppeteer-extra-plugin-stealth');
 chromium.use(StealthPlugin());
 
 const sources = {
   discover: require('./sources/discover'),
   'chase-freedom-flex': require('./sources/chase-freedom-flex'),
+  'usbank-cash-plus': require('./sources/usbank-cash-plus'),
+  'bofa-customized-cash': require('./sources/bofa-customized-cash'),
 };
 
 const LOG_FILE = require('path').join(__dirname, '..', 'crawler.log');

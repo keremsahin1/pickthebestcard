@@ -20,6 +20,7 @@ const sources = {
   'chase-freedom-flex': require('./sources/chase-freedom-flex'),
   'usbank-cash-plus': require('./sources/usbank-cash-plus'),
   'bofa-customized-cash': require('./sources/bofa-customized-cash'),
+  'citi-custom-cash': require('./sources/citi-custom-cash'),
 };
 
 const LOG_FILE = require('path').join(__dirname, '..', 'crawler.log');

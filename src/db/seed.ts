@@ -1,11 +1,14 @@
-import { getDb } from './schema';
+import sql, { initSchema } from './schema';
 
-export function seedDatabase() {
-  const db = getDb();
+let seeded = false;
 
-  // Check if already seeded
-  const existing = db.prepare('SELECT COUNT(*) as count FROM cards').get() as { count: number };
-  if (existing.count > 0) return;
+export async function seedDatabase() {
+  if (seeded) return;
+
+  await initSchema();
+
+  const [{ count }] = await sql`SELECT COUNT(*)::int as count FROM cards`;
+  if (count > 0) { seeded = true; return; }
 
   console.log('Seeding database...');
 
@@ -29,11 +32,12 @@ export function seedDatabase() {
     { name: 'General / Everything Else', icon: '💰' },
   ];
 
-  const insertCat = db.prepare('INSERT INTO categories (name, icon) VALUES (?, ?)');
-  for (const c of categories) insertCat.run(c.name, c.icon);
+  for (const c of categories) {
+    await sql`INSERT INTO categories (name, icon) VALUES (${c.name}, ${c.icon}) ON CONFLICT (name) DO NOTHING`;
+  }
 
-  const catId = (name: string): number => {
-    const row = db.prepare('SELECT id FROM categories WHERE name = ?').get(name) as { id: number };
+  const catId = async (name: string): Promise<number> => {
+    const [row] = await sql`SELECT id FROM categories WHERE name = ${name}`;
     return row.id;
   };
 
@@ -59,153 +63,112 @@ export function seedDatabase() {
     { name: 'US Bank Cash+', issuer: 'US Bank', base_rate: 1.0, reward_type: 'cashback', points_value: 1.0, color: '#002E6D' },
   ];
 
-  const insertCard = db.prepare(`
-    INSERT INTO cards (name, issuer, base_rate, reward_type, points_value, color)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  for (const c of cards) insertCard.run(c.name, c.issuer, c.base_rate, c.reward_type, c.points_value, c.color);
+  for (const c of cards) {
+    await sql`INSERT INTO cards (name, issuer, base_rate, reward_type, points_value, color) VALUES (${c.name}, ${c.issuer}, ${c.base_rate}, ${c.reward_type}, ${c.points_value}, ${c.color}) ON CONFLICT DO NOTHING`;
+  }
 
-  const cardId = (name: string): number => {
-    const row = db.prepare('SELECT id FROM cards WHERE name = ?').get(name) as { id: number };
+  const cardId = async (name: string): Promise<number> => {
+    const [row] = await sql`SELECT id FROM cards WHERE name = ${name}`;
     return row.id;
   };
 
-  // --- CARD BENEFITS ---
-  const insertBenefit = db.prepare(`
-    INSERT INTO card_benefits (card_id, category_id, merchant_id, rate, benefit_type, spend_cap, cap_period, notes, valid_from, valid_until, requires_activation)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+  // --- BENEFITS ---
+  type BenefitOpts = {
+    cap?: number | null; capPeriod?: string | null; notes?: string;
+    from?: string; until?: string; activation?: boolean; type?: string;
+  };
 
-  const benefit = (
-    card: string,
-    category: string | null,
-    rate: number,
-    opts: {
-      merchant?: string | null;
-      type?: string;
-      cap?: number | null;
-      capPeriod?: string | null;
-      notes?: string;
-      from?: string;
-      until?: string;
-      activation?: boolean;
-    } = {}
-  ) => {
-    insertBenefit.run(
-      cardId(card),
-      category ? catId(category) : null,
-      null, // merchant_id (we'll handle via name match)
-      rate,
-      opts.type ?? 'cashback',
-      opts.cap ?? null,
-      opts.capPeriod ?? null,
-      opts.notes ?? null,
-      opts.from ?? null,
-      opts.until ?? null,
-      opts.activation ? 1 : 0
-    );
+  const benefit = async (card: string, category: string | null, rate: number, opts: BenefitOpts = {}) => {
+    await sql`
+      INSERT INTO card_benefits (card_id, category_id, rate, benefit_type, spend_cap, cap_period, notes, valid_from, valid_until, requires_activation)
+      VALUES (
+        ${await cardId(card)},
+        ${category ? await catId(category) : null},
+        ${rate},
+        ${opts.type ?? 'cashback'},
+        ${opts.cap ?? null},
+        ${opts.capPeriod ?? null},
+        ${opts.notes ?? null},
+        ${opts.from ?? null},
+        ${opts.until ?? null},
+        ${opts.activation ?? false}
+      )
+    `;
   };
 
   // Chase Sapphire Preferred
-  benefit('Chase Sapphire Preferred', 'Dining & Restaurants', 3, { type: 'points' });
-  benefit('Chase Sapphire Preferred', 'Online Shopping', 3, { type: 'points' });
-  benefit('Chase Sapphire Preferred', 'Groceries', 3, { type: 'points' });
-  benefit('Chase Sapphire Preferred', 'Travel', 5, { type: 'points' });
-  benefit('Chase Sapphire Preferred', 'Streaming Services', 3, { type: 'points' });
+  await benefit('Chase Sapphire Preferred', 'Dining & Restaurants', 3, { type: 'points' });
+  await benefit('Chase Sapphire Preferred', 'Online Shopping', 3, { type: 'points' });
+  await benefit('Chase Sapphire Preferred', 'Groceries', 3, { type: 'points' });
+  await benefit('Chase Sapphire Preferred', 'Travel', 5, { type: 'points' });
+  await benefit('Chase Sapphire Preferred', 'Streaming Services', 3, { type: 'points' });
 
   // Chase Sapphire Reserve
-  benefit('Chase Sapphire Reserve', 'Dining & Restaurants', 3, { type: 'points' });
-  benefit('Chase Sapphire Reserve', 'Travel', 10, { type: 'points' });
+  await benefit('Chase Sapphire Reserve', 'Dining & Restaurants', 3, { type: 'points' });
+  await benefit('Chase Sapphire Reserve', 'Travel', 10, { type: 'points' });
 
   // Chase Freedom Unlimited
-  benefit('Chase Freedom Unlimited', 'Dining & Restaurants', 3, { type: 'cashback' });
-  benefit('Chase Freedom Unlimited', 'Drugstores & Pharmacy', 3, { type: 'cashback' });
-  benefit('Chase Freedom Unlimited', 'Travel', 5, { type: 'cashback' });
+  await benefit('Chase Freedom Unlimited', 'Dining & Restaurants', 3);
+  await benefit('Chase Freedom Unlimited', 'Drugstores & Pharmacy', 3);
+  await benefit('Chase Freedom Unlimited', 'Travel', 5);
 
-  // Chase Freedom Flex (rotating — Q1 2025 example: grocery stores, streaming)
-  benefit('Chase Freedom Flex', 'Dining & Restaurants', 3, { type: 'cashback' });
-  benefit('Chase Freedom Flex', 'Drugstores & Pharmacy', 3, { type: 'cashback' });
-  benefit('Chase Freedom Flex', 'Travel', 5, { type: 'cashback' });
-  benefit('Chase Freedom Flex', 'Groceries', 5, {
-    type: 'cashback', cap: 1500, capPeriod: 'quarter',
-    notes: 'Q1 2025 rotating category', from: '2025-01-01', until: '2025-03-31', activation: true
-  });
-  benefit('Chase Freedom Flex', 'Amazon', 5, {
-    type: 'cashback', cap: 1500, capPeriod: 'quarter',
-    notes: 'Q2 2025 rotating category', from: '2025-04-01', until: '2025-06-30', activation: true
-  });
+  // Chase Freedom Flex
+  await benefit('Chase Freedom Flex', 'Dining & Restaurants', 3);
+  await benefit('Chase Freedom Flex', 'Drugstores & Pharmacy', 3);
+  await benefit('Chase Freedom Flex', 'Travel', 5);
 
   // Amex Gold
-  benefit('Amex Gold Card', 'Dining & Restaurants', 4, { type: 'points' });
-  benefit('Amex Gold Card', 'Groceries', 4, { type: 'points', notes: 'US supermarkets only' });
-  benefit('Amex Gold Card', 'Online Shopping', 4, { type: 'points', notes: 'US supermarkets + online grocery' });
-  benefit('Amex Gold Card', 'Travel', 3, { type: 'points', notes: 'Flights booked directly with airlines' });
+  await benefit('Amex Gold Card', 'Dining & Restaurants', 4, { type: 'points' });
+  await benefit('Amex Gold Card', 'Groceries', 4, { type: 'points', notes: 'US supermarkets only' });
+  await benefit('Amex Gold Card', 'Travel', 3, { type: 'points', notes: 'Flights booked directly with airlines' });
 
   // Amex Platinum
-  benefit('Amex Platinum Card', 'Travel', 5, { type: 'points', notes: 'Flights booked directly or via Amex Travel' });
-  benefit('Amex Platinum Card', 'Hotels', 5, { type: 'points', notes: 'Hotels booked via Amex Travel' });
+  await benefit('Amex Platinum Card', 'Travel', 5, { type: 'points', notes: 'Flights booked directly or via Amex Travel' });
+  await benefit('Amex Platinum Card', 'Hotels', 5, { type: 'points', notes: 'Hotels booked via Amex Travel' });
 
   // Amex Blue Cash Preferred
-  benefit('Amex Blue Cash Preferred', 'Groceries', 6, { type: 'cashback', notes: 'US supermarkets, up to $6k/year', cap: 6000, capPeriod: 'year' });
-  benefit('Amex Blue Cash Preferred', 'Streaming Services', 6, { type: 'cashback' });
-  benefit('Amex Blue Cash Preferred', 'Gas & EV Charging', 3, { type: 'cashback' });
-  benefit('Amex Blue Cash Preferred', 'Travel', 3, { type: 'cashback', notes: 'Transit & commuting' });
+  await benefit('Amex Blue Cash Preferred', 'Groceries', 6, { notes: 'US supermarkets, up to $6k/year', cap: 6000, capPeriod: 'year' });
+  await benefit('Amex Blue Cash Preferred', 'Streaming Services', 6);
+  await benefit('Amex Blue Cash Preferred', 'Gas & EV Charging', 3);
+  await benefit('Amex Blue Cash Preferred', 'Travel', 3, { notes: 'Transit & commuting' });
 
   // Amex Blue Cash Everyday
-  benefit('Amex Blue Cash Everyday', 'Groceries', 3, { type: 'cashback', notes: 'US supermarkets, up to $6k/year', cap: 6000, capPeriod: 'year' });
-  benefit('Amex Blue Cash Everyday', 'Online Shopping', 3, { type: 'cashback', notes: 'US online retail' });
-  benefit('Amex Blue Cash Everyday', 'Gas & EV Charging', 2, { type: 'cashback' });
+  await benefit('Amex Blue Cash Everyday', 'Groceries', 3, { notes: 'US supermarkets, up to $6k/year', cap: 6000, capPeriod: 'year' });
+  await benefit('Amex Blue Cash Everyday', 'Online Shopping', 3, { notes: 'US online retail' });
+  await benefit('Amex Blue Cash Everyday', 'Gas & EV Charging', 2);
 
   // Citi Custom Cash
-  benefit('Citi Custom Cash', 'Dining & Restaurants', 5, { type: 'cashback', cap: 500, capPeriod: 'month', notes: 'Auto-applies to top spend category each billing cycle' });
-  benefit('Citi Custom Cash', 'Groceries', 5, { type: 'cashback', cap: 500, capPeriod: 'month' });
-  benefit('Citi Custom Cash', 'Gas & EV Charging', 5, { type: 'cashback', cap: 500, capPeriod: 'month' });
+  await benefit('Citi Custom Cash', 'Dining & Restaurants', 5, { cap: 500, capPeriod: 'month', notes: 'Auto-applies to top spend category' });
+  await benefit('Citi Custom Cash', 'Groceries', 5, { cap: 500, capPeriod: 'month' });
+  await benefit('Citi Custom Cash', 'Gas & EV Charging', 5, { cap: 500, capPeriod: 'month' });
 
-  // Discover it Cash Back (rotating — 2025 categories)
-  benefit('Discover it Cash Back', 'Dining & Restaurants', 5, {
-    type: 'cashback', cap: 1500, capPeriod: 'quarter',
-    notes: 'Q1 2025', from: '2025-01-01', until: '2025-03-31', activation: true
-  });
-  benefit('Discover it Cash Back', 'Wholesale Clubs', 5, {
-    type: 'cashback', cap: 1500, capPeriod: 'quarter',
-    notes: 'Q2 2025', from: '2025-04-01', until: '2025-06-30', activation: true
-  });
-  benefit('Discover it Cash Back', 'Gas & EV Charging', 5, {
-    type: 'cashback', cap: 1500, capPeriod: 'quarter',
-    notes: 'Q3 2025', from: '2025-07-01', until: '2025-09-30', activation: true
-  });
-  benefit('Discover it Cash Back', 'Online Shopping', 5, {
-    type: 'cashback', cap: 1500, capPeriod: 'quarter',
-    notes: 'Q4 2025', from: '2025-10-01', until: '2025-12-31', activation: true
-  });
+  // Discover it Cash Back (rotating — seeded by crawler, these are static fallbacks)
+  await benefit('Discover it Cash Back', 'Dining & Restaurants', 5, { cap: 1500, capPeriod: 'quarter', notes: 'Q1 2025', from: '2025-01-01', until: '2025-03-31', activation: true });
+  await benefit('Discover it Cash Back', 'Online Shopping', 5, { cap: 1500, capPeriod: 'quarter', notes: 'Q4 2025', from: '2025-10-01', until: '2025-12-31', activation: true });
 
   // Capital One Savor
-  benefit('Capital One Savor Cash Rewards', 'Dining & Restaurants', 3, { type: 'cashback' });
-  benefit('Capital One Savor Cash Rewards', 'Entertainment', 3, { type: 'cashback' });
-  benefit('Capital One Savor Cash Rewards', 'Groceries', 3, { type: 'cashback' });
-  benefit('Capital One Savor Cash Rewards', 'Streaming Services', 3, { type: 'cashback' });
+  await benefit('Capital One Savor Cash Rewards', 'Dining & Restaurants', 3);
+  await benefit('Capital One Savor Cash Rewards', 'Entertainment', 3);
+  await benefit('Capital One Savor Cash Rewards', 'Groceries', 3);
+  await benefit('Capital One Savor Cash Rewards', 'Streaming Services', 3);
 
   // Amazon Prime Visa
-  benefit('Amazon Prime Visa', 'Amazon', 5, { type: 'cashback', notes: 'Prime members only at Amazon & Whole Foods' });
-  benefit('Amazon Prime Visa', 'Groceries', 5, { type: 'cashback', notes: 'Whole Foods Market' });
-  benefit('Amazon Prime Visa', 'Dining & Restaurants', 2, { type: 'cashback' });
-  benefit('Amazon Prime Visa', 'Gas & EV Charging', 2, { type: 'cashback' });
-  benefit('Amazon Prime Visa', 'Online Shopping', 5, { type: 'cashback', notes: 'Amazon.com purchases' });
+  await benefit('Amazon Prime Visa', 'Amazon', 5, { notes: 'Prime members at Amazon & Whole Foods' });
+  await benefit('Amazon Prime Visa', 'Groceries', 5, { notes: 'Whole Foods Market' });
+  await benefit('Amazon Prime Visa', 'Dining & Restaurants', 2);
+  await benefit('Amazon Prime Visa', 'Gas & EV Charging', 2);
 
   // Apple Card
-  benefit('Apple Card', 'General / Everything Else', 2, { type: 'cashback', notes: 'Apple Pay purchases' });
-  benefit('Apple Card', 'General / Everything Else', 3, { type: 'cashback', notes: 'Apple purchases (App Store, Apple products)' });
+  await benefit('Apple Card', 'General / Everything Else', 2, { notes: 'Apple Pay purchases' });
 
   // US Bank Cash+
-  benefit('US Bank Cash+', 'Home Improvement', 5, { type: 'cashback', cap: 2000, capPeriod: 'quarter', notes: 'Choose 2 categories each quarter' });
-  benefit('US Bank Cash+', 'Streaming Services', 5, { type: 'cashback', cap: 2000, capPeriod: 'quarter' });
-  benefit('US Bank Cash+', 'Fitness Clubs', 5, { type: 'cashback', cap: 2000, capPeriod: 'quarter' });
-  benefit('US Bank Cash+', 'Groceries', 2, { type: 'cashback' });
-  benefit('US Bank Cash+', 'Gas & EV Charging', 2, { type: 'cashback' });
+  await benefit('US Bank Cash+', 'Home Improvement', 5, { cap: 2000, capPeriod: 'quarter', notes: 'Choose 2 categories each quarter' });
+  await benefit('US Bank Cash+', 'Streaming Services', 5, { cap: 2000, capPeriod: 'quarter' });
+  await benefit('US Bank Cash+', 'Fitness Clubs', 5, { cap: 2000, capPeriod: 'quarter' });
+  await benefit('US Bank Cash+', 'Groceries', 2);
+  await benefit('US Bank Cash+', 'Gas & EV Charging', 2);
 
   // --- MERCHANTS ---
-  const insertMerchant = db.prepare('INSERT INTO merchants (name, domain, category_id) VALUES (?, ?, ?)');
-
   const merchants = [
     { name: 'Amazon', domain: 'amazon.com', category: 'Amazon' },
     { name: 'Whole Foods', domain: 'wholefoodsmarket.com', category: 'Groceries' },
@@ -214,8 +177,8 @@ export function seedDatabase() {
     { name: 'Target', domain: 'target.com', category: 'Online Shopping' },
     { name: 'Kroger', domain: 'kroger.com', category: 'Groceries' },
     { name: 'Safeway', domain: 'safeway.com', category: 'Groceries' },
-    { name: 'Trader Joe\'s', domain: 'traderjoes.com', category: 'Groceries' },
-    { name: 'McDonald\'s', domain: 'mcdonalds.com', category: 'Dining & Restaurants' },
+    { name: "Trader Joe's", domain: 'traderjoes.com', category: 'Groceries' },
+    { name: "McDonald's", domain: 'mcdonalds.com', category: 'Dining & Restaurants' },
     { name: 'Starbucks', domain: 'starbucks.com', category: 'Dining & Restaurants' },
     { name: 'Chipotle', domain: 'chipotle.com', category: 'Dining & Restaurants' },
     { name: 'Uber Eats', domain: 'ubereats.com', category: 'Dining & Restaurants' },
@@ -237,9 +200,8 @@ export function seedDatabase() {
     { name: 'HBO Max', domain: 'max.com', category: 'Streaming Services' },
     { name: 'CVS', domain: 'cvs.com', category: 'Drugstores & Pharmacy' },
     { name: 'Walgreens', domain: 'walgreens.com', category: 'Drugstores & Pharmacy' },
-    { name: 'Rite Aid', domain: 'riteaid.com', category: 'Drugstores & Pharmacy' },
     { name: 'Home Depot', domain: 'homedepot.com', category: 'Home Improvement' },
-    { name: 'Lowe\'s', domain: 'lowes.com', category: 'Home Improvement' },
+    { name: "Lowe's", domain: 'lowes.com', category: 'Home Improvement' },
     { name: 'Marriott', domain: 'marriott.com', category: 'Hotels' },
     { name: 'Hilton', domain: 'hilton.com', category: 'Hotels' },
     { name: 'Airbnb', domain: 'airbnb.com', category: 'Hotels' },
@@ -247,17 +209,18 @@ export function seedDatabase() {
     { name: 'United Airlines', domain: 'united.com', category: 'Travel' },
     { name: 'American Airlines', domain: 'aa.com', category: 'Travel' },
     { name: 'Expedia', domain: 'expedia.com', category: 'Travel' },
-    { name: 'Sam\'s Club', domain: 'samsclub.com', category: 'Wholesale Clubs' },
-    { name: 'BJ\'s Wholesale', domain: 'bjs.com', category: 'Wholesale Clubs' },
-    { name: 'Macy\'s', domain: 'macys.com', category: 'Department Stores' },
+    { name: "Sam's Club", domain: 'samsclub.com', category: 'Wholesale Clubs' },
+    { name: "BJ's Wholesale", domain: 'bjs.com', category: 'Wholesale Clubs' },
+    { name: "Macy's", domain: 'macys.com', category: 'Department Stores' },
     { name: 'Nordstrom', domain: 'nordstrom.com', category: 'Online Shopping' },
     { name: 'PayPal', domain: 'paypal.com', category: 'PayPal' },
     { name: 'Instacart', domain: 'instacart.com', category: 'Groceries' },
   ];
 
   for (const m of merchants) {
-    insertMerchant.run(m.name, m.domain, catId(m.category));
+    await sql`INSERT INTO merchants (name, domain, category_id) VALUES (${m.name}, ${m.domain}, ${await catId(m.category)}) ON CONFLICT DO NOTHING`;
   }
 
+  seeded = true;
   console.log('Database seeded successfully.');
 }

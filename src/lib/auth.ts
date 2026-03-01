@@ -1,6 +1,6 @@
 import { NextAuthOptions, getServerSession } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
-import { getDb } from '@/db/schema';
+import sql from '@/db/schema';
 import { seedDatabase } from '@/db/seed';
 
 export const authOptions: NextAuthOptions = {
@@ -12,13 +12,11 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user }) {
-      const db = getDb();
-      seedDatabase();
-      db.prepare(`
-        INSERT INTO users (id, email, name, image)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET name=excluded.name, image=excluded.image
-      `).run(user.id, user.email, user.name ?? null, user.image ?? null);
+      await seedDatabase();
+      await sql`
+        INSERT INTO users (id, email, name, image) VALUES (${user.id}, ${user.email}, ${user.name ?? null}, ${user.image ?? null})
+        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, image = EXCLUDED.image
+      `;
       return true;
     },
     async session({ session, token }) {

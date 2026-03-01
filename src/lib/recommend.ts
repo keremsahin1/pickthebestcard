@@ -17,6 +17,7 @@ export interface CardRecommendation {
   validUntil: string | null;
   isRotating: boolean;
   baseRate: number;
+  benefitsUrl: string | null;
 }
 
 export interface MerchantMatch {
@@ -112,6 +113,7 @@ export async function getRecommendations(cardIds: number[], merchantQuery: strin
       validUntil: (bestBenefit?.valid_until as string) ?? null,
       isRotating: !!(bestBenefit?.valid_from || bestBenefit?.valid_until),
       baseRate: Number(card.base_rate),
+      benefitsUrl: card.benefits_url ?? null,
     });
   }
 

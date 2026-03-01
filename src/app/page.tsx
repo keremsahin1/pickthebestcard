@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, CreditCard, X, ChevronDown, Star, AlertCircle, Clock, LogIn, LogOut } from 'lucide-react';
+import { Search, CreditCard, X, ChevronDown, Star, AlertCircle, Clock, LogIn, LogOut, ExternalLink } from 'lucide-react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
 interface Card {
@@ -31,6 +31,7 @@ interface Recommendation {
   validUntil: string | null;
   isRotating: boolean;
   baseRate: number;
+  benefitsUrl: string | null;
 }
 
 interface MerchantMatch {
@@ -393,6 +394,17 @@ export default function Home() {
                   )}
                   {rec.notes && (
                     <div className="text-xs text-slate-500">ℹ️ {rec.notes}</div>
+                  )}
+                  {rec.benefitsUrl && (
+                    <a
+                      href={rec.benefitsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-indigo-400 transition-colors mt-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      {rec.isRotating ? 'View rotating category calendar' : 'View card benefits'}
+                    </a>
                   )}
                 </div>
               </div>

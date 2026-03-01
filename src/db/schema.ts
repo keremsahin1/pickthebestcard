@@ -13,6 +13,7 @@ export async function initSchema() {
       reward_type TEXT NOT NULL DEFAULT 'cashback',
       points_value REAL DEFAULT 1.0,
       color TEXT DEFAULT '#6366f1',
+      benefits_url TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;

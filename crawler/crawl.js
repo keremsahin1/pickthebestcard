@@ -16,7 +16,8 @@ const StealthPlugin = require('./node_modules/puppeteer-extra-plugin-stealth');
 chromium.use(StealthPlugin());
 
 const sources = {
-  'nerdwallet-rotating': require('./sources/nerdwallet-rotating'), // Discover + Chase Freedom Flex + Citi Dividend
+  discover: require('./sources/discover'),
+  'chase-cards': require('./sources/chase-cards'), // discovers all Chase cards + extracts benefits
   'usbank-cash-plus': require('./sources/usbank-cash-plus'),
   'bofa-customized-cash': require('./sources/bofa-customized-cash'),
   'citi-custom-cash': require('./sources/citi-custom-cash'),

@@ -4,6 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, CreditCard, X, ChevronDown, Star, AlertCircle, Clock, LogIn, LogOut, ExternalLink } from 'lucide-react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
+function isEmbeddedBrowser(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  return /LinkedIn|FBAN|FBAV|Instagram|Twitter|Line\/|MicroMessenger|WebView|(iPhone|iPod|iPad)(?!.*Safari)/i.test(ua);
+}
+
 interface Card {
   id: number;
   name: string;
@@ -61,8 +67,13 @@ export default function Home() {
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null);
   const [merchantMatch, setMerchantMatch] = useState<MerchantMatch | null>(null);
   const [loading, setLoading] = useState(false);
+  const [embeddedBrowser, setEmbeddedBrowser] = useState(false);
   const merchantRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setEmbeddedBrowser(isEmbeddedBrowser());
+  }, []);
 
   // Load all cards
   useEffect(() => {
@@ -189,25 +200,52 @@ export default function Home() {
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => signIn('google')}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-sm font-medium transition-colors"
-              >
-                <LogIn className="w-4 h-4" />
-                Sign in with Google
-              </button>
+              {embeddedBrowser ? (
+                <a
+                  href={typeof window !== 'undefined' ? window.location.href : '/'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/30 text-sm font-medium text-amber-300 transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open in browser to sign in
+                </a>
+              ) : (
+                <button
+                  onClick={() => signIn('google')}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-sm font-medium transition-colors"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sign in with Google
+                </button>
+              )}
             )}
           </div>
         </div>
 
         {/* Signed-in save banner */}
         {!session && status !== 'loading' && (
-          <div className="mb-6 flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-sm text-indigo-300">
-            <LogIn className="w-4 h-4 shrink-0" />
-            <span>
-              <button onClick={() => signIn('google')} className="underline font-medium">Sign in with Google</button>
-              {' '}to save your wallet — no more re-entering cards each time.
-            </span>
+          <div className={`mb-6 flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${embeddedBrowser ? 'bg-amber-500/10 border border-amber-500/20 text-amber-300' : 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-300'}`}>
+            {embeddedBrowser ? (
+              <>
+                <ExternalLink className="w-4 h-4 shrink-0" />
+                <span>
+                  Google sign-in doesn&apos;t work in in-app browsers.{' '}
+                  <a href={typeof window !== 'undefined' ? window.location.href : '/'} target="_blank" rel="noopener noreferrer" className="underline font-medium">
+                    Open in Chrome or Safari
+                  </a>{' '}
+                  to sign in and save your cards.
+                </span>
+              </>
+            ) : (
+              <>
+                <LogIn className="w-4 h-4 shrink-0" />
+                <span>
+                  <button onClick={() => signIn('google')} className="underline font-medium">Sign in with Google</button>
+                  {' '}to save your wallet — no more re-entering cards each time.
+                </span>
+              </>
+            )}
           </div>
         )}
 

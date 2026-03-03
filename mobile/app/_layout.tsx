@@ -11,6 +11,7 @@ export default function RootLayout() {
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: '600' },
           contentStyle: { backgroundColor: '#0f172a' },
+          headerShown: false,
         }}
       />
     </>

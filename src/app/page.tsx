@@ -69,11 +69,18 @@ export default function Home() {
   const [merchantMatch, setMerchantMatch] = useState<MerchantMatch | null>(null);
   const [loading, setLoading] = useState(false);
   const [embeddedBrowser, setEmbeddedBrowser] = useState(false);
+  const [allCategories, setAllCategories] = useState<{ id: number; name: string; icon: string }[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const merchantRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setEmbeddedBrowser(isEmbeddedBrowser());
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/categories').then(r => r.json()).then(setAllCategories).catch(() => {});
   }, []);
 
   // Load all cards
@@ -141,18 +148,28 @@ export default function Home() {
     }
   };
 
-  const getRecommendations = async () => {
+  const getRecommendations = async (overrideCategoryId?: number | null) => {
     if (!merchantQuery || selectedCards.length === 0) return;
     setLoading(true);
+    setShowCategoryPicker(false);
     try {
       const res = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cardIds: selectedCards.map(c => c.id), merchant: merchantQuery }),
+        body: JSON.stringify({
+          cardIds: selectedCards.map(c => c.id),
+          merchant: merchantQuery,
+          categoryId: overrideCategoryId ?? selectedCategoryId ?? undefined,
+        }),
       });
       const data = await res.json();
       setRecommendations(data.recommendations);
       setMerchantMatch(data.merchant);
+      // If merchant not found in DB, prompt for category (unless already provided)
+      if (!data.merchant.merchantId && overrideCategoryId == null && !selectedCategoryId) {
+        setShowCategoryPicker(true);
+        setRecommendations(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -323,7 +340,7 @@ export default function Home() {
                 className="bg-transparent outline-none text-sm w-full placeholder-slate-500"
                 placeholder="e.g. Amazon, Costco, Nike, Starbucks..."
                 value={merchantQuery}
-                onChange={e => { setMerchantQuery(e.target.value); setShowMerchantDropdown(true); setRecommendations(null); }}
+                onChange={e => { setMerchantQuery(e.target.value); setShowMerchantDropdown(true); setRecommendations(null); setShowCategoryPicker(false); setSelectedCategoryId(null); }}
                 onFocus={() => setShowMerchantDropdown(true)}
                 onKeyDown={e => { if (e.key === 'Enter') { setShowMerchantDropdown(false); getRecommendations(); } }}
               />
@@ -351,12 +368,40 @@ export default function Home() {
 
         {/* Find button */}
         <button
-          onClick={getRecommendations}
+          onClick={() => getRecommendations()}
           disabled={!merchantQuery || selectedCards.length === 0 || loading}
           className="w-full py-3.5 rounded-xl font-semibold text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           {loading ? 'Checking...' : 'Find Best Card'}
         </button>
+
+        {/* Category picker for unknown merchants */}
+        {showCategoryPicker && (
+          <div className="mt-6 p-4 rounded-2xl bg-slate-800/70 border border-slate-700">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <p className="text-sm text-slate-300">
+                We don&apos;t recognize <span className="text-white font-medium">{merchantQuery}</span> yet.
+                What type of store is it?
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {allCategories.map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setSelectedCategoryId(cat.id);
+                    getRecommendations(cat.id);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 text-sm transition-colors text-left"
+                >
+                  <span>{cat.icon}</span>
+                  <span className="text-slate-200">{cat.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Results */}
         {recommendations && (

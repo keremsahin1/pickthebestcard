@@ -56,10 +56,19 @@ export async function findMerchant(query: string): Promise<MerchantMatch> {
   return { merchantId: null, merchantName: query, categoryId: null, categoryName: null, isOnline };
 }
 
-export async function getRecommendations(cardIds: number[], merchantQuery: string) {
+export async function getRecommendations(cardIds: number[], merchantQuery: string, overrideCategoryId: number | null = null) {
   if (!cardIds.length) return { recommendations: [], merchant: await findMerchant(merchantQuery) };
 
   const merchant = await findMerchant(merchantQuery);
+
+  // If user provided a category override for unknown merchants, apply it
+  if (overrideCategoryId && !merchant.merchantId) {
+    const [cat] = await sql`SELECT id, name FROM categories WHERE id = ${overrideCategoryId}`;
+    if (cat) {
+      merchant.categoryId = cat.id;
+      merchant.categoryName = cat.name;
+    }
+  }
   const today = new Date().toISOString().split('T')[0];
   const results: CardRecommendation[] = [];
 

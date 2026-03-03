@@ -76,11 +76,12 @@ export async function seedDatabase() {
   type BenefitOpts = {
     cap?: number | null; capPeriod?: string | null; notes?: string;
     from?: string; until?: string; activation?: boolean; type?: string;
+    onlineOnly?: boolean;
   };
 
   const benefit = async (card: string, category: string | null, rate: number, opts: BenefitOpts = {}) => {
     await sql`
-      INSERT INTO card_benefits (card_id, category_id, rate, benefit_type, spend_cap, cap_period, notes, valid_from, valid_until, requires_activation)
+      INSERT INTO card_benefits (card_id, category_id, rate, benefit_type, spend_cap, cap_period, notes, valid_from, valid_until, requires_activation, online_only)
       VALUES (
         ${await cardId(card)},
         ${category ? await catId(category) : null},
@@ -91,7 +92,8 @@ export async function seedDatabase() {
         ${opts.notes ?? null},
         ${opts.from ?? null},
         ${opts.until ?? null},
-        ${opts.activation ?? false}
+        ${opts.activation ?? false},
+        ${opts.onlineOnly ?? false}
       )
     `;
   };
@@ -99,7 +101,7 @@ export async function seedDatabase() {
   // Chase Sapphire Preferred
   await benefit('Chase Sapphire Preferred', 'Dining & Restaurants', 3, { type: 'points' });
   await benefit('Chase Sapphire Preferred', 'Online Shopping', 3, { type: 'points' });
-  await benefit('Chase Sapphire Preferred', 'Groceries', 3, { type: 'points' });
+  await benefit('Chase Sapphire Preferred', 'Groceries', 3, { type: 'points', notes: '3x points on online grocery purchases (excluding Target, Walmart and wholesale clubs)', onlineOnly: true });
   await benefit('Chase Sapphire Preferred', 'Travel', 5, { type: 'points' });
   await benefit('Chase Sapphire Preferred', 'Streaming Services', 3, { type: 'points' });
 

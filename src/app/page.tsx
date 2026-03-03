@@ -45,6 +45,7 @@ interface MerchantMatch {
   merchantName: string;
   categoryId: number | null;
   categoryName: string | null;
+  isOnline: boolean;
 }
 
 interface Merchant {
@@ -199,8 +200,7 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-            ) : (
-              {embeddedBrowser ? (
+            ) : embeddedBrowser ? (
                 <a
                   href={typeof window !== 'undefined' ? window.location.href : '/'}
                   target="_blank"
@@ -219,7 +219,6 @@ export default function Home() {
                   Sign in with Google
                 </button>
               )}
-            )}
           </div>
         </div>
 

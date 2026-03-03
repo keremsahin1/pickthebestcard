@@ -25,20 +25,21 @@ export interface MerchantMatch {
   merchantName: string;
   categoryId: number | null;
   categoryName: string | null;
+  isOnline: boolean;
 }
 
 export async function findMerchant(query: string): Promise<MerchantMatch> {
   const q = query.toLowerCase().trim();
 
   let rows = await sql`
-    SELECT m.id, m.name, m.category_id, c.name as category_name
+    SELECT m.id, m.name, m.category_id, m.is_online, c.name as category_name
     FROM merchants m LEFT JOIN categories c ON c.id = m.category_id
     WHERE LOWER(m.name) = ${q} LIMIT 1
   `;
 
   if (!rows.length) {
     rows = await sql`
-      SELECT m.id, m.name, m.category_id, c.name as category_name
+      SELECT m.id, m.name, m.category_id, m.is_online, c.name as category_name
       FROM merchants m LEFT JOIN categories c ON c.id = m.category_id
       WHERE LOWER(m.name) LIKE ${'%' + q + '%'} OR LOWER(m.domain) LIKE ${'%' + q + '%'}
       LIMIT 1
@@ -47,10 +48,12 @@ export async function findMerchant(query: string): Promise<MerchantMatch> {
 
   if (rows.length) {
     const m = rows[0];
-    return { merchantId: m.id, merchantName: m.name, categoryId: m.category_id, categoryName: m.category_name };
+    return { merchantId: m.id, merchantName: m.name, categoryId: m.category_id, categoryName: m.category_name, isOnline: Boolean(m.is_online) };
   }
 
-  return { merchantId: null, merchantName: query, categoryId: null, categoryName: null };
+  // Treat unknown merchants ending in .com as online
+  const isOnline = q.endsWith('.com') || q.includes('online');
+  return { merchantId: null, merchantName: query, categoryId: null, categoryName: null, isOnline };
 }
 
 export async function getRecommendations(cardIds: number[], merchantQuery: string) {
@@ -80,7 +83,7 @@ export async function getRecommendations(cardIds: number[], merchantQuery: strin
       if (rows.length) bestBenefit = rows[0];
     }
 
-    // 2. Category benefit
+    // 2. Category benefit (respect online_only flag)
     if (!bestBenefit && merchant.categoryId) {
       const rows = await sql`
         SELECT cb.*, c.name as category_name FROM card_benefits cb
@@ -88,6 +91,7 @@ export async function getRecommendations(cardIds: number[], merchantQuery: strin
         WHERE cb.card_id = ${cardId} AND cb.category_id = ${merchant.categoryId}
           AND (cb.valid_from IS NULL OR cb.valid_from <= ${today})
           AND (cb.valid_until IS NULL OR cb.valid_until >= ${today})
+          AND (cb.online_only = false OR ${merchant.isOnline} = true)
         ORDER BY cb.rate DESC LIMIT 1
       `;
       if (rows.length) bestBenefit = rows[0];

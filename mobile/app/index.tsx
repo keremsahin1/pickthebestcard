@@ -133,8 +133,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <Pressable style={{ flex: 1 }} onPress={dismissAll}>
-    <ScrollView style={s.container} keyboardShouldPersistTaps="handled">
+    <ScrollView style={s.container} keyboardShouldPersistTaps="handled" onScrollBeginDrag={dismissAll}>
       {/* Header */}
       <View style={s.header}>
         <View style={s.headerTop}>
@@ -329,7 +328,6 @@ export default function HomeScreen() {
 
       <View style={{ height: 40 }} />
     </ScrollView>
-    </Pressable>
   );
 }
 

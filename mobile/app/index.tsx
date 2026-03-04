@@ -334,6 +334,21 @@ export default function HomeScreen() {
         </View>
       )}
 
+        {/* Points valuation disclaimer */}
+        {recommendations && recommendations.some(r => r.rewardType === 'points') && (
+          <View style={s.disclaimer}>
+            <Text style={s.disclaimerText}>
+              💡 Points value estimated using industry-standard valuations (Chase UR: 2¢, Amex MR: 2¢, Capital One: 1.85¢). Actual value varies by redemption method.
+            </Text>
+          </View>
+        )}
+
+        {/* Empty state */}
+        {recommendations?.length === 0 && (
+          <Text style={s.emptyState}>No matching benefits found. Try a different store name or category.</Text>
+        )}
+
+      <Text style={s.footer}>Card benefits are updated periodically. Always verify with your card issuer.</Text>
       <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -434,4 +449,11 @@ const s = StyleSheet.create({
   recEffective: { color: '#34d399', fontSize: 11, fontWeight: '500' },
   recCategory: { color: '#64748b', fontSize: 10 },
   notice: { color: '#94a3b8', fontSize: 11, marginTop: 6 },
+  disclaimer: {
+    marginHorizontal: 20, marginTop: 12, padding: 10, borderRadius: 10,
+    backgroundColor: '#1e293b', borderWidth: 1, borderColor: '#334155',
+  },
+  disclaimerText: { color: '#64748b', fontSize: 11, lineHeight: 16 },
+  emptyState: { textAlign: 'center', color: '#64748b', fontSize: 13, marginTop: 32, marginHorizontal: 20 },
+  footer: { textAlign: 'center', color: '#334155', fontSize: 11, marginTop: 24, marginHorizontal: 20 },
 });

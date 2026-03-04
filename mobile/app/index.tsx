@@ -117,8 +117,8 @@ export default function HomeScreen() {
   };
 
   const formatReward = (rec: Recommendation) => {
-    if (rec.rewardType === 'points') return `${rec.rate}x pts`;
-    return `${rec.rate}% back`;
+    if (rec.rewardType === 'points') return `${rec.rate}x points`;
+    return `${rec.rate}% cash back`;
   };
 
   const formatEffective = (rec: Recommendation) => {
@@ -326,7 +326,7 @@ export default function HomeScreen() {
               )}
               {rec.benefitsUrl && (
                 <TouchableOpacity onPress={() => Linking.openURL(rec.benefitsUrl!)}>
-                  <Text style={s.benefitsLink}>↗ View official benefits</Text>
+                  <Text style={s.benefitsLink}>🔗 View card benefits</Text>
                 </TouchableOpacity>
               )}
             </View>

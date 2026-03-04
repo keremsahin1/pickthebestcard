@@ -196,7 +196,7 @@ export default function Home() {
             <div className="inline-flex items-center justify-center w-14 h-14 bg-indigo-500/20 rounded-2xl mb-4">
               <CreditCard className="w-7 h-7 text-indigo-400" />
             </div>
-            <h1 className="text-3xl font-bold mb-2">Pick The Best Card</h1>
+            <h1 className="text-3xl font-bold mb-2">💳 Pick The Best Card</h1>
             <p className="text-slate-400 text-sm">Find the best card to use at any store</p>
           </div>
 

@@ -138,7 +138,7 @@ export default function HomeScreen() {
       <View style={s.header}>
         <View style={s.headerTop}>
           <View>
-            <Text style={s.headerTitle}>🐾 Pick The Best Card</Text>
+            <Text style={s.headerTitle}>💳 Pick The Best Card</Text>
             <Text style={s.headerSub}>Find the best card for any store</Text>
           </View>
           {user ? (

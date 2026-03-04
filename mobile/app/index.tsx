@@ -1,12 +1,22 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, FlatList,
-  ScrollView, ActivityIndicator, StyleSheet, Alert
+  View, Text, TextInput, TouchableOpacity,
+  ScrollView, ActivityIndicator, StyleSheet, Alert, Image
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { fetchCards, fetchCategories, searchMerchants, getRecommendations } from '../lib/api';
 import type { Card, Merchant, Category, Recommendation, MerchantMatch } from '../lib/api';
+import { fetchGoogleUser, saveUser, loadUser, clearUser } from '../lib/auth';
+import type { User } from '../lib/auth';
+
+WebBrowser.maybeCompleteAuthSession();
+
+// Replace with your iOS client ID from Google Cloud Console
+const GOOGLE_IOS_CLIENT_ID = '517026320231-5qj1rochv8lr6qj3k98q6qh2p6nahhb7.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
 
 const SAVED_CARDS_KEY = 'saved_cards';
 
@@ -26,12 +36,32 @@ export default function HomeScreen() {
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null);
   const [merchantMatch, setMerchantMatch] = useState<MerchantMatch | null>(null);
   const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    iosClientId: GOOGLE_IOS_CLIENT_ID,
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+  });
 
   // Load cards and categories
   useEffect(() => {
     fetchCards().then(setAllCards);
     fetchCategories().then(setCategories);
+    loadUser().then(setUser);
   }, []);
+
+  // Handle Google sign-in response
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const token = response.authentication?.accessToken;
+      if (token) {
+        fetchGoogleUser(token).then(u => {
+          saveUser(u);
+          setUser(u);
+        });
+      }
+    }
+  }, [response]);
 
   // Load saved cards from storage
   useFocusEffect(useCallback(() => {
@@ -112,8 +142,28 @@ export default function HomeScreen() {
     <ScrollView style={s.container} keyboardShouldPersistTaps="handled">
       {/* Header */}
       <View style={s.header}>
-        <Text style={s.headerTitle}>🐾 Pick The Best Card</Text>
-        <Text style={s.headerSub}>Find the best card for any store</Text>
+        <View style={s.headerTop}>
+          <View>
+            <Text style={s.headerTitle}>🐾 Pick The Best Card</Text>
+            <Text style={s.headerSub}>Find the best card for any store</Text>
+          </View>
+          {user ? (
+            <TouchableOpacity style={s.userBtn} onPress={() => { clearUser(); setUser(null); }}>
+              {user.picture
+                ? <Image source={{ uri: user.picture }} style={s.avatar} />
+                : <Text style={s.avatarInitial}>{user.name?.[0] ?? '?'}</Text>
+              }
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={s.signInBtn}
+              onPress={() => promptAsync()}
+              disabled={!request}
+            >
+              <Text style={s.signInText}>Sign in</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Card selector */}
@@ -281,9 +331,21 @@ export default function HomeScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a' },
-  header: { alignItems: 'center', paddingTop: 60, paddingBottom: 24, paddingHorizontal: 20 },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  headerSub: { fontSize: 14, color: '#94a3b8' },
+  header: { paddingTop: 60, paddingBottom: 24, paddingHorizontal: 20 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 2 },
+  headerSub: { fontSize: 13, color: '#94a3b8' },
+  signInBtn: {
+    backgroundColor: '#1e293b', borderRadius: 20, borderWidth: 1,
+    borderColor: '#334155', paddingHorizontal: 14, paddingVertical: 7,
+  },
+  signInText: { color: '#e2e8f0', fontSize: 13, fontWeight: '500' },
+  userBtn: { padding: 2 },
+  avatar: { width: 36, height: 36, borderRadius: 18 },
+  avatarInitial: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#4f46e5',
+    color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', lineHeight: 36,
+  },
   section: { marginHorizontal: 20, marginBottom: 16 },
   label: { fontSize: 13, fontWeight: '600', color: '#cbd5e1', marginBottom: 8 },
   input: {

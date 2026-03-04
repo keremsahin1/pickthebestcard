@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  ScrollView, ActivityIndicator, StyleSheet, Alert, Image
+  ScrollView, ActivityIndicator, StyleSheet, Alert, Image, Pressable, Keyboard
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -126,7 +126,14 @@ export default function HomeScreen() {
     return `~${rec.effectiveRate.toFixed(1)}% value`;
   };
 
+  const dismissAll = () => {
+    setShowCardDropdown(false);
+    setShowMerchantDropdown(false);
+    Keyboard.dismiss();
+  };
+
   return (
+    <Pressable style={{ flex: 1 }} onPress={dismissAll}>
     <ScrollView style={s.container} keyboardShouldPersistTaps="handled">
       {/* Header */}
       <View style={s.header}>
@@ -322,6 +329,7 @@ export default function HomeScreen() {
 
       <View style={{ height: 40 }} />
     </ScrollView>
+    </Pressable>
   );
 }
 

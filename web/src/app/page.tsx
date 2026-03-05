@@ -204,8 +204,8 @@ export default function Home() {
                 {session.user?.image && (
                   <img src={session.user.image} alt="" className="w-8 h-8 rounded-full" />
                 )}
-                <div className="text-right hidden sm:block">
-                  <div className="text-sm font-medium">{session.user?.name?.split(' ')[0]}</div>
+                <div className="text-right">
+                  <div className="text-sm font-medium hidden sm:block">{session.user?.name?.split(' ')[0]}</div>
                   <button
                     onClick={() => signOut()}
                     className="text-xs text-slate-400 hover:text-white flex items-center gap-1"

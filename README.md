@@ -1,3 +1,5 @@
+[![Weekly Benefit Crawler](https://github.com/keremsahin1/pickthebestcard/actions/workflows/crawler.yml/badge.svg)](https://github.com/keremsahin1/pickthebestcard/actions/workflows/crawler.yml)
+
 # Pick The Best Card 💳
 
 > Never leave rewards on the table. Pick The Best Card tells you exactly which credit card to use at any store.

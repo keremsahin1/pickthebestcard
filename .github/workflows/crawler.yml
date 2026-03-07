@@ -1,0 +1,58 @@
+name: Weekly Benefit Crawler
+
+on:
+  schedule:
+    - cron: '0 10 * * 1'  # Every Monday at 10:00 AM UTC (2 AM PST)
+  workflow_dispatch:       # Allow manual trigger from GitHub UI
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: crawler/package-lock.json
+
+      - name: Install dependencies
+        working-directory: crawler
+        run: npm install
+
+      - name: Install Playwright browsers
+        working-directory: crawler
+        run: npx playwright install chromium --with-deps
+
+      - name: Install Xvfb (virtual display for headful Amex crawl)
+        run: sudo apt-get install -y xvfb
+
+      - name: Run headless crawlers
+        working-directory: crawler
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          node crawl.js chase-cards
+          node crawl.js citi-cards
+          node crawl.js capitalone-cards
+          node crawl.js citi-custom-cash
+          node crawl.js usbank-cash-plus
+          node crawl.js bofa-customized-cash
+          node crawl.js discover
+
+      - name: Run Amex crawler (headful via Xvfb)
+        working-directory: crawler
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DISPLAY: ':99'
+        run: |
+          Xvfb :99 -screen 0 1280x720x24 &
+          sleep 2
+          node crawl.js amex-cards

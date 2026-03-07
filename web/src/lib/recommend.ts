@@ -27,6 +27,7 @@ export interface CardProtection {
   color: string;
   protectionType: 'car_rental_insurance' | 'extended_warranty';
   coverageDetails: string;
+  coverageTier: 'primary' | 'secondary' | 'unknown';
   notes: string | null;
   benefitsUrl: string | null;
 }
@@ -171,7 +172,9 @@ export async function getRecommendations(cardIds: number[], merchantQuery: strin
       FROM card_protections cp
       JOIN cards c ON c.id = cp.card_id
       WHERE cp.card_id = ANY(${cardIds}::int[]) AND cp.protection_type = ${protectionType}
-      ORDER BY c.issuer, c.name
+      ORDER BY
+        CASE cp.coverage_tier WHEN 'primary' THEN 1 WHEN 'secondary' THEN 2 ELSE 3 END,
+        c.name
     `;
     for (const r of rows) {
       protections.push({
@@ -181,6 +184,7 @@ export async function getRecommendations(cardIds: number[], merchantQuery: strin
         color: r.color,
         protectionType: r.protection_type,
         coverageDetails: r.coverage_details,
+        coverageTier: r.coverage_tier ?? 'unknown',
         notes: r.notes,
         benefitsUrl: r.benefits_url,
       });

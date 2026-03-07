@@ -374,6 +374,11 @@ export default function HomeScreen() {
                   <View style={[s.protectionBar, { backgroundColor: p.color }]} />
                   <Text style={s.protectionName}>{p.cardName}</Text>
                 </View>
+                {p.coverageTier !== 'unknown' && (
+                  <Text style={[s.tierBadge, p.coverageTier === 'primary' ? s.tierPrimary : s.tierSecondary]}>
+                    {p.coverageTier === 'primary' ? '⭐ Primary' : 'Secondary'}
+                  </Text>
+                )}
                 <Text style={s.protectionDetails}>{p.coverageDetails}</Text>
                 {p.notes && <Text style={s.protectionNotes}>ℹ️ {p.notes}</Text>}
                 {p.benefitsUrl && (
@@ -505,4 +510,7 @@ const s = StyleSheet.create({
   protectionName: { color: '#f1f5f9', fontSize: 13, fontWeight: '600', flex: 1 },
   protectionDetails: { color: '#cbd5e1', fontSize: 12, marginLeft: 12, marginBottom: 2 },
   protectionNotes: { color: '#64748b', fontSize: 11, marginLeft: 12, marginTop: 2 },
+  tierBadge: { fontSize: 11, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginLeft: 12, marginBottom: 4, alignSelf: 'flex-start' },
+  tierPrimary: { backgroundColor: 'rgba(16,185,129,0.15)', color: '#34d399' },
+  tierSecondary: { backgroundColor: 'rgba(100,116,139,0.2)', color: '#94a3b8' },
 });

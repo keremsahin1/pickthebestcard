@@ -524,6 +524,11 @@ export default function Home() {
                     <div className="w-1 h-4 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                     <span className="text-sm font-medium">{p.cardName}</span>
                   </div>
+                  {p.coverageTier !== 'unknown' && (
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ml-3 mb-1 inline-block ${p.coverageTier === 'primary' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-600/40 text-slate-400'}`}>
+                      {p.coverageTier === 'primary' ? '⭐ Primary' : 'Secondary'}
+                    </span>
+                  )}
                   <p className="text-xs text-slate-300 ml-3">{p.coverageDetails}</p>
                   {p.notes && <p className="text-xs text-slate-500 ml-3 mt-0.5">ℹ️ {p.notes}</p>}
                   {p.benefitsUrl && (

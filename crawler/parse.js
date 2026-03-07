@@ -47,12 +47,14 @@ CRITICAL RULES about merchant-specific vs category-wide benefits:
    - "10x miles at United Airlines" → merchant: "United Airlines", NOT category: "Travel"
    - "5x at Hilton properties" → merchant: "Hilton", NOT category: "Hotels"
    - "5% at Costco gas stations, 4% elsewhere" → TWO entries: merchant: "Costco Gas" at 5%, then category: "Gas Stations" at 4%
+   - "5% back at Amazon.com" → merchant: "Amazon", category: "Online Shopping" (Amazon is a merchant, NOT a category)
+   - "5% back at Whole Foods Market" → merchant: "Whole Foods Market", category: "Groceries"
 
 2. Only use a category (no merchant) when the benefit truly applies to ALL merchants in that category.
    Example: "3x on all dining" → category: "Dining & Restaurants", merchant: null
 
 For each benefit, return JSON with:
-- category: one of: "Groceries", "Dining & Restaurants", "Gas Stations", "Online Shopping", "Travel", "Hotels", "Streaming Services", "Drugstores & Pharmacy", "Wholesale Clubs", "Home Improvement", "Amazon", "General / Everything Else"
+- category: one of: "Groceries", "Dining & Restaurants", "Gas Stations", "Online Shopping", "Travel", "Hotels", "Streaming Services", "Drugstores & Pharmacy", "Wholesale Clubs", "Home Improvement", "General / Everything Else"
 - merchant: string or null — the specific merchant/brand name when the rate is brand-specific (see rules above)
 - rate: number (e.g. 3 for 3x points or 3% cashback)
 - type: "cashback" or "points"
@@ -63,6 +65,7 @@ For each benefit, return JSON with:
 Return ONLY a JSON array, no explanation. Example:
 [
   {"category":"Hotels","merchant":"Hyatt","rate":9,"type":"points","notes":"Up to 9x total points at Hyatt hotels","spendCap":null,"capPeriod":null},
+  {"category":"Online Shopping","merchant":"Amazon","rate":5,"type":"cashback","notes":"5% back at Amazon.com","spendCap":null,"capPeriod":null},
   {"category":"Dining & Restaurants","merchant":null,"rate":2,"type":"points","notes":"2x on dining worldwide","spendCap":null,"capPeriod":null},
   {"category":"Gas Stations","merchant":"Costco Gas","rate":5,"type":"cashback","notes":"5% at Costco gas","spendCap":7000,"capPeriod":"year"},
   {"category":"Gas Stations","merchant":null,"rate":4,"type":"cashback","notes":"4% at other gas stations","spendCap":7000,"capPeriod":"year"}

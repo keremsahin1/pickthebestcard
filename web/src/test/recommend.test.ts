@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import type { CardRecommendation, CardProtection } from '@/lib/recommend';
 import { formatReward, formatEffectiveValue, sortRecommendations, sortProtections } from '@/shared';
 
@@ -341,6 +343,62 @@ describe('loyalty card hotel/airline specificity', () => {
       makeRec('IHG One Rewards Premier', 1.5, 'points', { rate: 3 }),
     ]);
     expect(atMarriott[0].cardName).toBe('Marriott Bonvoy Boundless');
+  });
+});
+
+// ─── Crawler prompt regression ──────────────────────────────────────────────
+
+describe('crawler LLM prompt regressions', () => {
+  const parseJs = readFileSync(join(__dirname, '..', '..', '..', 'crawler', 'parse.js'), 'utf-8');
+
+  it('does not list Amazon as a standalone category', () => {
+    // Bug: "Amazon" in the category list caused the LLM to return category:"Amazon"
+    // instead of merchant:"Amazon", storing benefits under the wrong category_id.
+    const categoryListMatch = parseJs.match(/category: one of: "([^"]+(?:", "[^"]+)*)"/);
+    expect(categoryListMatch).toBeTruthy();
+    const categories = categoryListMatch![1].split('", "');
+    expect(categories).not.toContain('Amazon');
+  });
+
+  it('includes Amazon as a merchant-specific example', () => {
+    expect(parseJs).toContain('merchant: "Amazon"');
+  });
+});
+
+// ─── Merchant-specific benefit regressions ──────────────────────────────────
+
+describe('merchant-specific benefit regressions', () => {
+  // Bug: Amazon Prime Visa 5% at Amazon was stored as category "Amazon" (id 581)
+  // but the Amazon merchant mapped to category "Online Shopping" (id 4).
+  // The recommend code matched on category_id=4, found nothing, fell back to 1% base.
+  // Fix: store Amazon benefits as merchant-specific (merchant_id), not category-level.
+
+  it('Amazon Prime Visa 5% at Amazon beats Amazon Visa 3%', () => {
+    const sorted = sortRecommendations([
+      makeRec('Amazon Visa', 3, 'cashback', { rate: 3, baseRate: 1 }),
+      makeRec('Amazon Prime Visa', 5, 'cashback', { rate: 5, baseRate: 1 }),
+    ]);
+    expect(sorted[0].cardName).toBe('Amazon Prime Visa');
+    expect(sorted[0].rate).toBe(5);
+    expect(sorted[1].cardName).toBe('Amazon Visa');
+    expect(sorted[1].rate).toBe(3);
+  });
+
+  it('merchant-specific rate is used, not base rate', () => {
+    // Simulates: card has 5% merchant-specific benefit, not falling back to 1% base
+    const rec = makeRec('Amazon Prime Visa', 5, 'cashback', { rate: 5, baseRate: 1 });
+    expect(rec.rate).toBe(5);
+    expect(rec.rate).not.toBe(rec.baseRate);
+  });
+
+  it('merchant-specific benefit beats category benefit for different category', () => {
+    // Card A has merchant-specific 5% at Amazon
+    // Card B has category-level 2% for "Online Shopping"
+    const sorted = sortRecommendations([
+      makeRec('Card B (Online Shopping 2%)', 2, 'cashback', { rate: 2 }),
+      makeRec('Card A (Amazon merchant 5%)', 5, 'cashback', { rate: 5 }),
+    ]);
+    expect(sorted[0].cardName).toContain('Card A');
   });
 });
 

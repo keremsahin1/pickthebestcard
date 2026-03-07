@@ -121,4 +121,55 @@ describe('detectCoverageTier', () => {
     expect(detectCoverageTier('Coverage is PRIMARY')).toBe('primary');
     expect(detectCoverageTier('SECONDARY coverage applies')).toBe('secondary');
   });
+
+  it('primary wins if both words appear', () => {
+    expect(detectCoverageTier('primary coverage, unlike secondary plans')).toBe('primary');
+  });
+
+  it('returns unknown for empty string', () => {
+    expect(detectCoverageTier('')).toBe('unknown');
+  });
+
+  it('returns unknown for unrelated text', () => {
+    expect(detectCoverageTier('Worldwide car rental insurance included')).toBe('unknown');
+  });
+});
+
+describe('sortRecommendations - edge cases', () => {
+  it('handles all same effective rate', () => {
+    const sorted = sortRecommendations([makeRec('A', 3), makeRec('B', 3), makeRec('C', 3)]);
+    expect(sorted).toHaveLength(3);
+    expect(sorted.every(r => r.effectiveRate === 3)).toBe(true);
+  });
+
+  it('returns new array (immutable)', () => {
+    const recs = [makeRec('A', 2), makeRec('B', 5)];
+    const sorted = sortRecommendations(recs);
+    expect(sorted).not.toBe(recs);
+  });
+});
+
+describe('sortProtections - edge cases', () => {
+  it('handles all unknown tier, sorts by amount', () => {
+    const sorted = sortProtections([
+      { ...makeProtection('Low', 'unknown', 10000), coverageDetails: 'Up to $10,000' },
+      { ...makeProtection('High', 'unknown', 50000), coverageDetails: 'Up to $50,000' },
+    ]);
+    expect(sorted[0].cardName).toBe('High');
+  });
+
+  it('handles multiple primary cards, sorts by amount', () => {
+    const sorted = sortProtections([
+      makeProtection('C', 'primary', 25000),
+      makeProtection('A', 'primary', 75000),
+      makeProtection('B', 'primary', 50000),
+    ]);
+    expect(sorted.map(p => p.cardName)).toEqual(['A', 'B', 'C']);
+  });
+
+  it('returns new array (immutable)', () => {
+    const protections = [makeProtection('A', 'primary', 75000)];
+    const sorted = sortProtections(protections);
+    expect(sorted).not.toBe(protections);
+  });
 });

@@ -55,6 +55,7 @@ interface Protection {
   color: string;
   protectionType: 'car_rental_insurance' | 'extended_warranty';
   coverageDetails: string;
+  coverageTier: 'primary' | 'secondary' | 'unknown';
   notes: string | null;
   benefitsUrl: string | null;
 }

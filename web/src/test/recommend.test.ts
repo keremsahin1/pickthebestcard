@@ -344,6 +344,34 @@ describe('loyalty card hotel/airline specificity', () => {
     ]);
     expect(sorted[0].cardName).toContain('Marriott');
   });
+
+  it('Hyatt card wins at Hyatt over all Marriott/IHG cards', () => {
+    const atHyatt = sortRecommendations([
+      makeRec('World of Hyatt Credit Card', 6.8, 'points', { rate: 4 }),
+      makeRec('Marriott Bonvoy Boundless', 1.8, 'points', { rate: 2 }),
+      makeRec('Marriott Bonvoy Bountiful', 1.8, 'points', { rate: 2 }),
+      makeRec('IHG One Rewards Premier', 1.5, 'points', { rate: 3 }),
+    ]);
+    expect(atHyatt[0].cardName).toBe('World of Hyatt Credit Card');
+  });
+
+  it('IHG card wins at IHG over all Marriott/Hyatt cards', () => {
+    const atIHG = sortRecommendations([
+      makeRec('IHG One Rewards Premier', 13, 'points', { rate: 26 }),
+      makeRec('Marriott Bonvoy Boundless', 1.8, 'points', { rate: 2 }),
+      makeRec('World of Hyatt Credit Card', 1.7, 'points', { rate: 1 }),
+    ]);
+    expect(atIHG[0].cardName).toBe('IHG One Rewards Premier');
+  });
+
+  it('Marriott card wins at Marriott over all Hyatt/IHG cards', () => {
+    const atMarriott = sortRecommendations([
+      makeRec('Marriott Bonvoy Boundless', 15.3, 'points', { rate: 17 }),
+      makeRec('World of Hyatt Credit Card', 1.7, 'points', { rate: 1 }),
+      makeRec('IHG One Rewards Premier', 1.5, 'points', { rate: 3 }),
+    ]);
+    expect(atMarriott[0].cardName).toBe('Marriott Bonvoy Boundless');
+  });
 });
 
 describe('category matching regressions', () => {

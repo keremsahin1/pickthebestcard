@@ -1,5 +1,6 @@
 [![Weekly Benefit Crawler](https://github.com/keremsahin1/pickthebestcard/actions/workflows/crawler.yml/badge.svg)](https://github.com/keremsahin1/pickthebestcard/actions/workflows/crawler.yml)
 [![Tests](https://github.com/keremsahin1/pickthebestcard/actions/workflows/test.yml/badge.svg)](https://github.com/keremsahin1/pickthebestcard/actions/workflows/test.yml)
+![Coverage](https://raw.githubusercontent.com/keremsahin1/pickthebestcard/main/coverage-badge.svg)
 
 # Pick The Best Card 💳
 

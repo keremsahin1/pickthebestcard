@@ -6,53 +6,78 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
-  test-shared:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: shared/package-lock.json
-      - name: Install dependencies
+
+      - name: Install shared dependencies
         working-directory: shared
         run: npm install
-      - name: Run shared tests
-        working-directory: shared
-        run: npm test
 
-  test-web:
-    needs: test-shared
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
-      - name: Install dependencies
+      - name: Install web dependencies
         working-directory: web
         run: npm install
-      - name: Run web tests
-        working-directory: web
-        run: npm test
 
-  test-mobile:
-    needs: test-shared
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: mobile/package-lock.json
-      - name: Install dependencies
+      - name: Install mobile dependencies
         working-directory: mobile
         run: npm install --legacy-peer-deps
-      - name: Run mobile tests
+
+      - name: Run shared tests with coverage
+        working-directory: shared
+        run: npm run test:coverage
+
+      - name: Run web tests with coverage
+        working-directory: web
+        run: npm run test:coverage
+
+      - name: Run mobile tests with coverage
         working-directory: mobile
-        run: npm test
+        run: npm run test:coverage
+
+      - name: Generate coverage badge
+        run: |
+          COVERAGE=$(python3 -c "
+          import json, os
+
+          total_covered = 0
+          total_total = 0
+          for pkg in ['shared', 'web', 'mobile']:
+              path = os.path.join(pkg, 'coverage', 'coverage-summary.json')
+              with open(path) as f:
+                  data = json.load(f)
+              t = data['total']['lines']
+              total_covered += t['covered']
+              total_total += t['total']
+
+          pct = round(total_covered / total_total * 100, 1) if total_total > 0 else 0
+          print(pct)
+          ")
+          echo "Combined coverage: ${COVERAGE}%"
+
+          if (( $(echo "$COVERAGE >= 80" | bc -l) )); then COLOR="brightgreen"
+          elif (( $(echo "$COVERAGE >= 60" | bc -l) )); then COLOR="yellow"
+          elif (( $(echo "$COVERAGE >= 40" | bc -l) )); then COLOR="orange"
+          else COLOR="red"; fi
+
+          curl -s "https://img.shields.io/badge/coverage-${COVERAGE}%25-${COLOR}" > coverage-badge.svg
+
+      - name: Commit coverage badge
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add coverage-badge.svg
+          if git diff --cached --quiet; then
+            echo "No badge change"
+          else
+            git commit -m "ci: update coverage badge [skip ci]"
+            git push
+          fi

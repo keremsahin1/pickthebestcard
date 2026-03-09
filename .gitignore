@@ -16,9 +16,15 @@ data.db
 .env.local
 .env.*.local
 
+# coverage (local — CI commits the badge SVG separately)
+coverage/
+
 # OS
 .DS_Store
 
 # logs
 *.log
 .vercel
+
+# claw
+memory/

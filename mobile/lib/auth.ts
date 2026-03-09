@@ -48,7 +48,26 @@ export async function saveUser(user: User) {
 
 export async function loadUser(): Promise<User | null> {
   const val = await AsyncStorage.getItem(USER_KEY);
-  return val ? JSON.parse(val) : null;
+  if (!val) return null;
+
+  const user: User = JSON.parse(val);
+
+  // Silently refresh the Google access token — stored tokens expire after ~1 hour
+  // but the Google Sign-In SDK can refresh them without user interaction.
+  try {
+    const currentUser = await GoogleSignin.getCurrentUser();
+    if (currentUser) {
+      const tokens = await GoogleSignin.getTokens();
+      if (tokens.accessToken && tokens.accessToken !== user.accessToken) {
+        user.accessToken = tokens.accessToken;
+        await saveUser(user);
+      }
+    }
+  } catch {
+    // Token refresh failed — user will need to sign in again
+  }
+
+  return user;
 }
 
 export async function clearUser() {

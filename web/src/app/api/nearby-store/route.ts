@@ -14,7 +14,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const session = await getAuth();
   const sessionEmail = session?.user?.email;
   const googleToken = req.headers.get('x-google-token');
-  const rawIp = req.headers.get('x-forwarded-for') ?? '0.0.0.0';
+  const rawIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown';
 
   const userKey = await resolveUserKey(sessionEmail, googleToken, rawIp);
   const allowed = await checkAndIncrementRateLimit(userKey);
@@ -22,8 +22,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
   }
 
-  const googlePlaces = await fetchGooglePlaces(lat, lng);
-  const places = await matchAndLogPlaces(googlePlaces);
-
-  return NextResponse.json({ places });
+  try {
+    const googlePlaces = await fetchGooglePlaces(lat, lng);
+    const places = await matchAndLogPlaces(googlePlaces);
+    return NextResponse.json({ places });
+  } catch {
+    return NextResponse.json({ places: [] });
+  }
 }

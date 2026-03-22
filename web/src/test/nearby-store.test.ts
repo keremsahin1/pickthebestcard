@@ -19,7 +19,7 @@ const { default: sql } = await import('@/db/schema');
 const mockSql = vi.mocked(sql);
 
 // Import the lib functions under test (must come after mocks)
-const { checkAndIncrementRateLimit, matchAndLogPlaces } = await import('@/lib/nearby');
+const { checkAndIncrementRateLimit, matchAndLogPlaces, resolveUserKey } = await import('@/lib/nearby');
 const { POST } = await import('@/app/api/nearby-store/route');
 
 describe('checkAndIncrementRateLimit', () => {
@@ -94,6 +94,27 @@ describe('matchAndLogPlaces', () => {
   });
 });
 
+describe('resolveUserKey', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns user:<email> when sessionEmail is provided', async () => {
+    const key = await resolveUserKey('user@example.com', null, '1.2.3.4');
+    expect(key).toBe('user:user@example.com');
+    expect(mockFetch).not.toHaveBeenCalled(); // no Google call needed
+  });
+
+  it('falls back to anon:<hash> when no session and no token', async () => {
+    const key = await resolveUserKey(null, null, '1.2.3.4');
+    expect(key).toMatch(/^anon:[0-9a-f]{16}$/);
+  });
+
+  it('falls back to anon:<hash> when google token fetch fails', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('network error'));
+    const key = await resolveUserKey(null, 'bad-token', '1.2.3.4');
+    expect(key).toMatch(/^anon:[0-9a-f]{16}$/);
+  });
+});
+
 describe('POST /api/nearby-store', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -121,36 +142,39 @@ describe('POST /api/nearby-store', () => {
 
   it('returns { places: NearbyPlace[] } with mocked Google response', async () => {
     process.env.GOOGLE_PLACES_API_KEY = 'test-key';
-    // rate limit OK
-    mockSql.mockResolvedValueOnce([{ count: 1 }]);
-    // Google Places API response
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        status: 'OK',
-        results: [
-          { place_id: 'ChIJ1', name: 'Whole Foods Market', types: ['grocery_or_supermarket'] },
-          { place_id: 'ChIJ2', name: 'Shell', types: ['gas_station'] },
-        ],
-      }),
-    });
-    // merchant lookup for Whole Foods: match
-    mockSql.mockResolvedValueOnce([{ id: 56, category_id: 1 }]);
-    // merchant lookup for Shell: no match
-    mockSql.mockResolvedValueOnce([]);
-    // category lookup for Shell
-    mockSql.mockResolvedValueOnce([{ id: 5 }]);
-    // merchant_sightings upsert for Shell
-    mockSql.mockResolvedValueOnce([]);
+    try {
+      // rate limit OK
+      mockSql.mockResolvedValueOnce([{ count: 1 }]);
+      // Google Places API response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          status: 'OK',
+          results: [
+            { place_id: 'ChIJ1', name: 'Whole Foods Market', types: ['grocery_or_supermarket'] },
+            { place_id: 'ChIJ2', name: 'Shell', types: ['gas_station'] },
+          ],
+        }),
+      });
+      // merchant lookup for Whole Foods: match
+      mockSql.mockResolvedValueOnce([{ id: 56, category_id: 1 }]);
+      // merchant lookup for Shell: no match
+      mockSql.mockResolvedValueOnce([]);
+      // category lookup for Shell
+      mockSql.mockResolvedValueOnce([{ id: 5 }]);
+      // merchant_sightings upsert for Shell
+      mockSql.mockResolvedValueOnce([]);
 
-    const res = await POST(makeReq({ lat: 37.7749, lng: -122.4194 }));
-    delete process.env.GOOGLE_PLACES_API_KEY;
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.places).toHaveLength(2);
-    expect(body.places[0].name).toBe('Whole Foods Market');
-    expect(body.places[0].merchantId).toBe(56);
-    expect(body.places[1].name).toBe('Shell');
-    expect(body.places[1].merchantId).toBeNull();
+      const res = await POST(makeReq({ lat: 37.7749, lng: -122.4194 }));
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.places).toHaveLength(2);
+      expect(body.places[0].name).toBe('Whole Foods Market');
+      expect(body.places[0].merchantId).toBe(56);
+      expect(body.places[1].name).toBe('Shell');
+      expect(body.places[1].merchantId).toBeNull();
+    } finally {
+      delete process.env.GOOGLE_PLACES_API_KEY;
+    }
   });
 });

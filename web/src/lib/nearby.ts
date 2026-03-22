@@ -104,14 +104,21 @@ export async function fetchPlacesAutocomplete(query: string): Promise<GooglePlac
   const data = await res.json();
   if (!Array.isArray(data.suggestions)) return [];
 
+  const seen = new Set<string>();
   return data.suggestions
     .filter((s: { placePrediction?: unknown }) => s.placePrediction)
-    .slice(0, 5)
     .map((s: { placePrediction: { placeId: string; structuredFormat?: { mainText?: { text: string } }; text?: { text: string }; types?: string[] } }) => ({
       place_id: s.placePrediction.placeId,
       name: s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text ?? '',
       types: s.placePrediction.types ?? [],
-    }));
+    }))
+    .filter((p: GooglePlace) => {
+      const key = p.name.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5);
 }
 
 export async function categorizePlaces(places: GooglePlace[]): Promise<NearbyPlace[]> {

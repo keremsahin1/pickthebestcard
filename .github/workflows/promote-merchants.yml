@@ -1,0 +1,49 @@
+name: Promote Merchant Sightings
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 3 AM UTC daily
+  workflow_dispatch:        # allow manual runs
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install @neondatabase/serverless
+        run: npm install @neondatabase/serverless
+
+      - name: Promote sightings to merchants table
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          node --input-type=module <<'EOF'
+          import { neon } from '@neondatabase/serverless';
+          const sql = neon(process.env.DATABASE_URL);
+
+          const sightings = await sql`
+            SELECT ms.place_id, ms.name, ms.category_id
+            FROM merchant_sightings ms
+            WHERE NOT EXISTS (
+              SELECT 1 FROM merchants m
+              WHERE LOWER(m.name) LIKE LOWER(ms.name)
+            )
+          `;
+
+          let count = 0;
+          for (const s of sightings) {
+            await sql`
+              INSERT INTO merchants (name, category_id, is_online)
+              VALUES (${s.name}, ${s.category_id}, false)
+              ON CONFLICT DO NOTHING
+            `;
+            count++;
+          }
+
+          console.log(`Promoted ${count} merchant(s)`);
+          EOF

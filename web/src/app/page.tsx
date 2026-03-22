@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, CreditCard, X, ChevronDown, Star, AlertCircle, Clock, LogIn, LogOut, ExternalLink } from 'lucide-react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { formatReward, formatEffectiveValue, sortRecommendations, sortProtections } from '@pickthebestcard/shared';
-import type { Recommendation, Protection, MerchantMatch, Merchant, Category } from '@pickthebestcard/shared';
+import type { Recommendation, Protection, MerchantMatch, Merchant, Category, NearbyPlace } from '@pickthebestcard/shared';
 
 function isEmbeddedBrowser(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -41,6 +41,10 @@ export default function Home() {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const merchantRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const nearbyFetchedRef = useRef(false);
 
   useEffect(() => {
     setEmbeddedBrowser(isEmbeddedBrowser());
@@ -144,7 +148,47 @@ export default function Home() {
     }
   };
 
+  async function fetchNearby(lat: number, lng: number) {
+    if (nearbyFetchedRef.current) return;
+    nearbyFetchedRef.current = true;
+    setNearbyLoading(true);
+    try {
+      const res = await fetch('/api/nearby-store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNearbyPlaces(data.places ?? []);
+      }
+    } catch {
+      // silent failure
+    } finally {
+      setNearbyLoading(false);
+    }
+  }
 
+  function handleMerchantFocus() {
+    setShowMerchantDropdown(true);
+    if (coordsRef.current) {
+      fetchNearby(coordsRef.current.lat, coordsRef.current.lng);
+      return;
+    }
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        coordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        fetchNearby(coordsRef.current.lat, coordsRef.current.lng);
+      },
+      () => { /* permission denied — silent */ },
+      { timeout: 5000 }
+    );
+  }
+
+  const filteredNearby = nearbyPlaces.filter(
+    (p) => !merchantQuery || p.name.toLowerCase().includes(merchantQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -298,13 +342,41 @@ export default function Home() {
                 placeholder="e.g. Amazon, Costco, Nike, Starbucks..."
                 value={merchantQuery}
                 onChange={e => { setMerchantQuery(e.target.value); setShowMerchantDropdown(true); setRecommendations(null); setProtections(null); setShowCategoryPicker(false); setSelectedCategoryId(null); }}
-                onFocus={() => setShowMerchantDropdown(true)}
+                onFocus={handleMerchantFocus}
                 onKeyDown={e => { if (e.key === 'Enter') { setShowMerchantDropdown(false); getRecommendations(); } }}
               />
             </div>
 
-            {showMerchantDropdown && merchantSuggestions.length > 0 && (
+            {showMerchantDropdown && (filteredNearby.length > 0 || nearbyLoading || merchantSuggestions.length > 0) && (
               <div className="absolute top-full mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-2xl z-10">
+                {/* Nearby section */}
+                {(filteredNearby.length > 0 || nearbyLoading) && (
+                  <div>
+                    <div className="px-4 py-1.5 text-xs text-slate-500 font-medium border-b border-slate-700/50">
+                      📍 Nearby
+                    </div>
+                    {nearbyLoading && filteredNearby.length === 0 && (
+                      <div className="px-4 py-2 text-sm text-slate-500">Loading...</div>
+                    )}
+                    {filteredNearby.map((place) => (
+                      <button
+                        key={place.placeId}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700 text-left transition-colors"
+                        onClick={() => {
+                          setMerchantQuery(place.name);
+                          setShowMerchantDropdown(false);
+                          setNearbyPlaces([]);
+                        }}
+                      >
+                        <span className="text-lg">📍</span>
+                        <div>
+                          <div className="text-sm font-medium">{place.name}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* Text-search results */}
                 {merchantSuggestions.map((m: Merchant) => (
                   <button
                     key={m.id}

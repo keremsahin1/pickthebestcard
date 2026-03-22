@@ -55,6 +55,7 @@ export async function findMerchant(query: string): Promise<MerchantMatch> {
       SELECT m.id, m.name, m.category_id, m.is_online, c.name as category_name
       FROM merchants m LEFT JOIN categories c ON c.id = m.category_id
       WHERE LOWER(m.name) LIKE ${'%' + q + '%'} OR LOWER(m.domain) LIKE ${'%' + q + '%'}
+         OR ${q} LIKE '%' || LOWER(m.name) || '%'
       LIMIT 1
     `;
   }

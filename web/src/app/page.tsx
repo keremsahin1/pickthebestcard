@@ -372,6 +372,7 @@ export default function Home() {
                         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700 text-left transition-colors"
                         onClick={() => {
                           setMerchantQuery(place.name);
+                          if (place.categoryId) setSelectedCategoryId(place.categoryId);
                           setShowMerchantDropdown(false);
                           setNearbyPlaces([]);
                         }}
@@ -379,6 +380,11 @@ export default function Home() {
                         <span className="text-lg">📍</span>
                         <div>
                           <div className="text-sm font-medium">{place.name}</div>
+                          {place.categoryId && (
+                            <div className="text-xs text-slate-400">
+                              {allCategories.find(c => c.id === place.categoryId)?.name}
+                            </div>
+                          )}
                         </div>
                       </button>
                     ))}

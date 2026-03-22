@@ -60,7 +60,7 @@ export async function fetchGooglePlaces(lat: number, lng: number): Promise<Googl
       locationRestriction: {
         circle: { center: { latitude: lat, longitude: lng }, radius: 5000 },
       },
-      rankPreference: 'DISTANCE',
+      rankPreference: 'POPULARITY',
       maxResultCount: 5,
     }),
   });

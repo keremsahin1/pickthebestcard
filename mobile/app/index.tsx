@@ -38,6 +38,7 @@ export default function HomeScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
   const nearbyFetchedRef = useRef(false);
 
@@ -109,10 +110,10 @@ export default function HomeScreen() {
       const data = await getRecommendations(
         selectedCards.map(c => c.id),
         merchantQuery,
-        overrideCategoryId
+        overrideCategoryId ?? selectedCategoryId
       );
       setMerchantMatch(data.merchant);
-      if (!data.merchant.merchantId && overrideCategoryId == null) {
+      if (!data.merchant.merchantId && overrideCategoryId == null && !selectedCategoryId) {
         setShowCategoryPicker(true);
         setRecommendations(null);
       } else {
@@ -297,6 +298,7 @@ export default function HomeScreen() {
             setRecommendations(null);
             setProtections(null);
             setShowCategoryPicker(false);
+            setSelectedCategoryId(null);
           }}
           onFocus={handleMerchantFocus}
           returnKeyType="search"
@@ -317,6 +319,7 @@ export default function HomeScreen() {
                     style={s.dropdownItem}
                     onPress={() => {
                       setMerchantQuery(place.name);
+                      if (place.categoryId) setSelectedCategoryId(place.categoryId);
                       setShowMerchantDropdown(false);
                       setNearbyPlaces([]);
                     }}
@@ -324,6 +327,11 @@ export default function HomeScreen() {
                     <Text style={s.emoji}>📍</Text>
                     <View>
                       <Text style={s.dropdownItemTitle}>{place.name}</Text>
+                      {place.categoryId && (
+                        <Text style={s.dropdownItemSubtitle}>
+                          {categories.find(c => c.id === place.categoryId)?.name}
+                        </Text>
+                      )}
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -531,6 +539,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#273548',
   },
   dropdownItemTitle: { color: '#e2e8f0', fontSize: 13, fontWeight: '500' },
+  dropdownItemSubtitle: { color: '#64748b', fontSize: 11, marginTop: 1 },
   dropdownItemSub: { color: '#64748b', fontSize: 11 },
   emoji: { fontSize: 18 },
   findBtn: {

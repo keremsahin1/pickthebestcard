@@ -68,4 +68,22 @@ export async function initSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_card_benefits_card ON card_benefits(card_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_card_benefits_category ON card_benefits(category_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_merchants_name ON merchants(name)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS location_requests (
+      user_key  TEXT NOT NULL,
+      req_date  DATE NOT NULL DEFAULT CURRENT_DATE,
+      count     INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_key, req_date)
+    )
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS merchant_sightings (
+      place_id       TEXT PRIMARY KEY,
+      name           TEXT NOT NULL,
+      google_types   TEXT[],
+      category_id    INTEGER REFERENCES categories(id),
+      sighting_count INTEGER NOT NULL DEFAULT 1,
+      last_seen      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
 }

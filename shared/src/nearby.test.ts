@@ -5,14 +5,18 @@ describe('googleTypesToCategoryName', () => {
   it('maps grocery types', () => {
     expect(googleTypesToCategoryName(['grocery_or_supermarket'])).toBe('Groceries');
     expect(googleTypesToCategoryName(['supermarket'])).toBe('Groceries');
+    expect(googleTypesToCategoryName(['grocery_store'])).toBe('Groceries');
+    expect(googleTypesToCategoryName(['food_store'])).toBe('Groceries');
+    expect(googleTypesToCategoryName(['asian_grocery_store'])).toBe('Groceries');
   });
 
   it('maps dining types', () => {
     expect(googleTypesToCategoryName(['restaurant'])).toBe('Dining & Restaurants');
-    expect(googleTypesToCategoryName(['food'])).toBe('Dining & Restaurants');
     expect(googleTypesToCategoryName(['cafe'])).toBe('Dining & Restaurants');
     expect(googleTypesToCategoryName(['bakery'])).toBe('Dining & Restaurants');
     expect(googleTypesToCategoryName(['bar'])).toBe('Dining & Restaurants');
+    expect(googleTypesToCategoryName(['fast_food_restaurant'])).toBe('Dining & Restaurants');
+    expect(googleTypesToCategoryName(['coffee_shop'])).toBe('Dining & Restaurants');
   });
 
   it('maps gas station', () => {
@@ -47,8 +51,14 @@ describe('googleTypesToCategoryName', () => {
     expect(googleTypesToCategoryName(['establishment'])).toBe('General / Everything Else');
   });
 
-  it('uses first matching type in the array', () => {
+  it('uses category priority, not type order', () => {
+    // Groceries should win over Dining even if 'food' appears first
+    expect(googleTypesToCategoryName(['food_store', 'food', 'grocery_store', 'supermarket'])).toBe('Groceries');
     expect(googleTypesToCategoryName(['restaurant', 'food', 'establishment'])).toBe('Dining & Restaurants');
     expect(googleTypesToCategoryName(['establishment', 'grocery_or_supermarket'])).toBe('Groceries');
+  });
+
+  it('maps hotel type', () => {
+    expect(googleTypesToCategoryName(['hotel'])).toBe('Hotels');
   });
 });

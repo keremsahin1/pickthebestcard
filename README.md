@@ -18,6 +18,8 @@ Pick The Best Card solves this: **type where you're shopping**, and it tells you
 ## Features
 
 - 🔍 **Search any store** — 500+ merchants across 42 categories with smart fallback for unknown merchants
+- 📍 **Location-aware suggestions** — GPS-based nearby store detection; tap to instantly get the best card for where you are
+- 🔎 **Google Places autocomplete** — when a merchant isn't in the database, Google Places fills in with automatic category mapping; merchants are auto-saved to the DB on first lookup
 - 💳 **Your wallet** — add the cards you actually own; synced across web and iOS
 - 🏆 **Instant ranked recommendations** — best card first, with effective % value for points cards
 - 🔄 **Rotating category support** — Discover 5%, Chase Freedom Flex, and others tracked with active dates
@@ -40,8 +42,8 @@ pickthebestcard/
 
 ### Shared Package
 `shared/` contains all types and pure functions used by both web and mobile:
-- **Types**: `Card`, `Recommendation`, `Protection`, `MerchantMatch`, `MerchantTag`
-- **Functions**: `formatReward`, `formatEffectiveValue`, `sortRecommendations`, `sortProtections`, `detectCoverageTier`
+- **Types**: `Card`, `Recommendation`, `Protection`, `MerchantMatch`, `MerchantTag`, `NearbyPlace`
+- **Functions**: `formatReward`, `formatEffectiveValue`, `sortRecommendations`, `sortProtections`, `detectCoverageTier`, `googleTypesToCategoryName`
 
 Because Vercel only builds `web/` and Expo only builds `mobile/`, the shared source is copied into `web/src/shared/` and `mobile/lib/shared/` at dev time. Both use a TypeScript path alias `@pickthebestcard/shared` that resolves to their local copy.
 
@@ -53,14 +55,14 @@ Because Vercel only builds `web/` and Expo only builds `mobile/`, the shared sou
 - **Database**: Neon Postgres (serverless)
 - **Styling**: Tailwind CSS
 - **Analytics**: Vercel Analytics + Speed Insights
-- **Tests**: Vitest (93 tests)
+- **Tests**: Vitest (111 tests)
 - **Deployment**: Vercel (root directory: `web/`)
 
 ### Mobile (`mobile/`)
 - **Framework**: Expo + React Native (Expo Router)
 - **Auth**: `@react-native-google-signin/google-signin` (native SDK)
 - **Card sync**: `/api/mobile/cards` endpoint (Google token auth)
-- **Tests**: Jest (21 tests)
+- **Tests**: Jest (28 tests)
 - **Platform**: iOS only
 
 ### Crawler (`crawler/`)
@@ -80,6 +82,8 @@ Because Vercel only builds `web/` and Expo only builds `mobile/`, the shared sou
 | `categories` | 42 | Spend categories (Groceries, Hotels, Gas Stations, etc.) |
 | `merchants` | 505 | Known merchants with category and domain |
 | `merchant_tags` | 33 | Multi-tag system: `car_rental`, `extended_warranty_eligible` |
+| `merchant_sightings` | dynamic | GPS-discovered places, promoted to merchants daily |
+| `location_requests` | dynamic | Rate limiting for GPS feature (100/day per user) |
 | `users` | — | Signed-up users |
 | `user_cards` | — | Cards saved per user |
 
@@ -120,9 +124,9 @@ npx expo run:ios
 
 ### Running Tests
 ```bash
-cd shared && npm test          # 40 shared logic tests
-cd web && npx tsc --noEmit && npm test   # 93 web tests
-cd mobile && npm test          # 21 mobile tests
+cd shared && npm test          # 49 shared logic tests
+cd web && npx tsc --noEmit && npm test   # 111 web tests
+cd mobile && npm test          # 28 mobile tests
 ```
 
 ## Environment Variables
@@ -134,6 +138,7 @@ cd mobile && npm test          # 21 mobile tests
 | `GOOGLE_CLIENT_SECRET` | web | Google OAuth client secret |
 | `NEXTAUTH_SECRET` | web | Random secret for session signing |
 | `NEXTAUTH_URL` | web | Your deployment URL |
+| `GOOGLE_PLACES_API_KEY` | web | Google Places API (nearby + autocomplete) |
 | `OPENAI_API_KEY` | crawler | GPT-4o-mini for benefit parsing |
 
 ## Deployment
@@ -143,6 +148,7 @@ cd mobile && npm test          # 21 mobile tests
   - Set `ENABLE_USER_SCRIPT_SANDBOXING = No` in Xcode Build Settings
   - Run `npx expo prebuild --clean` before archiving after config changes
 - **Crawler**: Runs automatically on GitHub Actions every Monday; can be triggered manually via workflow dispatch
+- **Merchant promotion**: Daily GitHub Action promotes GPS-discovered merchants from `merchant_sightings` to `merchants` table
 
 ## Contributing
 

@@ -60,7 +60,15 @@ export async function fetchGooglePlaces(lat: number, lng: number): Promise<Googl
       locationRestriction: {
         circle: { center: { latitude: lat, longitude: lng }, radius: 5000 },
       },
-      rankPreference: 'POPULARITY',
+      includedTypes: [
+        'grocery_store', 'supermarket', 'convenience_store',
+        'department_store', 'shopping_mall', 'clothing_store', 'electronics_store',
+        'home_goods_store', 'hardware_store', 'furniture_store', 'shoe_store',
+        'book_store', 'sporting_goods_store',
+        'restaurant', 'fast_food_restaurant', 'cafe', 'coffee_shop', 'bakery', 'bar',
+        'gas_station', 'pharmacy', 'drugstore', 'hotel',
+      ],
+      rankPreference: 'DISTANCE',
       maxResultCount: 5,
     }),
   });

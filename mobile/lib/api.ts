@@ -56,7 +56,7 @@ export async function getRecommendations(
   cardIds: number[],
   merchant: string,
   categoryId?: number | null
-): Promise<{ recommendations: Recommendation[]; merchant: MerchantMatch }> {
+): Promise<{ recommendations: Recommendation[]; merchant: MerchantMatch; protections?: Protection[] }> {
   const res = await fetch(`${BASE_URL}/api/recommend`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

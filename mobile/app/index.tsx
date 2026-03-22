@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   ScrollView, ActivityIndicator, StyleSheet, Alert, Image, Keyboard, Linking, ActionSheetIOS
@@ -11,6 +11,8 @@ import { formatReward, sortProtections } from '@pickthebestcard/shared';
 import type { Recommendation, MerchantMatch, Protection } from '@pickthebestcard/shared';
 import { configureGoogleSignIn, signInWithGoogle, signOutGoogle, loadUser } from '../lib/auth';
 import type { User } from '../lib/auth';
+import * as Location from 'expo-location';
+import type { NearbyPlace } from '../lib/shared/types';
 
 configureGoogleSignIn();
 
@@ -34,6 +36,10 @@ export default function HomeScreen() {
   const [merchantMatch, setMerchantMatch] = useState<MerchantMatch | null>(null);
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const nearbyFetchedRef = useRef(false);
 
   // Load cards and categories
   useEffect(() => {
@@ -122,6 +128,47 @@ export default function HomeScreen() {
 
 
 
+  async function fetchNearby(lat: number, lng: number) {
+    if (nearbyFetchedRef.current) return;
+    nearbyFetchedRef.current = true;
+    setNearbyLoading(true);
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (user?.accessToken) headers['x-google-token'] = user.accessToken;
+      const res = await fetch('https://pickthebestcard.com/api/nearby-store', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ lat, lng }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNearbyPlaces(data.places ?? []);
+      }
+    } catch {
+      // silent
+    } finally {
+      setNearbyLoading(false);
+    }
+  }
+
+  async function handleMerchantFocus() {
+    setShowCardDropdown(false);
+    setShowMerchantDropdown(true);
+    if (coordsRef.current) {
+      fetchNearby(coordsRef.current.lat, coordsRef.current.lng);
+      return;
+    }
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') return;
+    try {
+      const pos = await Location.getCurrentPositionAsync({});
+      coordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      fetchNearby(coordsRef.current.lat, coordsRef.current.lng);
+    } catch {
+      // silent
+    }
+  }
+
   const formatEffective = (rec: Recommendation) => {
     if (rec.rewardType !== 'points') return null;
     return `~${rec.effectiveRate.toFixed(1)}% value`;
@@ -132,6 +179,10 @@ export default function HomeScreen() {
     setShowMerchantDropdown(false);
     Keyboard.dismiss();
   };
+
+  const filteredNearby = nearbyPlaces.filter(
+    (p) => !merchantQuery || p.name.toLowerCase().includes(merchantQuery.toLowerCase())
+  );
 
   return (
     <ScrollView style={s.container} keyboardShouldPersistTaps="handled" onScrollBeginDrag={dismissAll}>
@@ -237,12 +288,38 @@ export default function HomeScreen() {
             setProtections(null);
             setShowCategoryPicker(false);
           }}
-          onFocus={() => { setShowCardDropdown(false); setShowMerchantDropdown(true); }}
+          onFocus={handleMerchantFocus}
           returnKeyType="search"
           onSubmitEditing={() => findBestCard()}
         />
-        {showMerchantDropdown && merchantSuggestions.length > 0 && (
+        {showMerchantDropdown && (filteredNearby.length > 0 || nearbyLoading || merchantSuggestions.length > 0) && (
           <View style={s.dropdown}>
+            {/* Nearby section */}
+            {(filteredNearby.length > 0 || nearbyLoading) && (
+              <>
+                <Text style={s.nearbyHeader}>📍 Nearby</Text>
+                {nearbyLoading && filteredNearby.length === 0 && (
+                  <Text style={s.nearbyLoading}>Loading...</Text>
+                )}
+                {filteredNearby.map((place) => (
+                  <TouchableOpacity
+                    key={place.placeId}
+                    style={s.dropdownItem}
+                    onPress={() => {
+                      setMerchantQuery(place.name);
+                      setShowMerchantDropdown(false);
+                      setNearbyPlaces([]);
+                    }}
+                  >
+                    <Text style={s.emoji}>📍</Text>
+                    <View>
+                      <Text style={s.dropdownItemTitle}>{place.name}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+            {/* Text-search results */}
             {merchantSuggestions.map(m => (
               <TouchableOpacity
                 key={m.id}
@@ -512,4 +589,6 @@ const s = StyleSheet.create({
   tierBadge: { fontSize: 11, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginLeft: 12, marginBottom: 4, alignSelf: 'flex-start' },
   tierPrimary: { backgroundColor: 'rgba(16,185,129,0.15)', color: '#34d399' },
   tierSecondary: { backgroundColor: 'rgba(100,116,139,0.2)', color: '#94a3b8' },
+  nearbyHeader: { fontSize: 11, color: '#64748b', fontWeight: '600', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
+  nearbyLoading: { fontSize: 14, color: '#94a3b8', paddingHorizontal: 12, paddingVertical: 8 },
 });

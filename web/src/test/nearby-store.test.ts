@@ -154,14 +154,13 @@ describe('POST /api/nearby-store', () => {
     try {
       // rate limit OK
       mockSql.mockResolvedValueOnce([{ count: 1 }]);
-      // Google Places API response
+      // Google Places API (New) response
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          status: 'OK',
-          results: [
-            { place_id: 'ChIJ1', name: 'Whole Foods Market', types: ['grocery_or_supermarket'] },
-            { place_id: 'ChIJ2', name: 'Shell', types: ['gas_station'] },
+          places: [
+            { id: 'ChIJ1', displayName: { text: 'Whole Foods Market' }, types: ['grocery_or_supermarket'] },
+            { id: 'ChIJ2', displayName: { text: 'Shell' }, types: ['gas_station'] },
           ],
         }),
       });

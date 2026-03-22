@@ -49,17 +49,31 @@ export async function fetchGooglePlaces(lat: number, lng: number): Promise<Googl
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) return [];
 
-  const url =
-    `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
-    `?location=${lat},${lng}&rankby=distance&type=establishment&key=${apiKey}`;
-
-  const res = await fetch(url);
+  const res = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': 'places.id,places.displayName,places.types',
+    },
+    body: JSON.stringify({
+      locationRestriction: {
+        circle: { center: { latitude: lat, longitude: lng }, radius: 5000 },
+      },
+      rankPreference: 'DISTANCE',
+      maxResultCount: 5,
+    }),
+  });
   if (!res.ok) return [];
 
   const data = await res.json();
-  if (data.status !== 'OK') return [];
+  if (!Array.isArray(data.places)) return [];
 
-  return (data.results as GooglePlace[]).slice(0, 5);
+  return data.places.map((p: { id: string; displayName: { text: string }; types: string[] }) => ({
+    place_id: p.id,
+    name: p.displayName.text,
+    types: p.types ?? [],
+  }));
 }
 
 export async function matchAndLogPlaces(places: GooglePlace[]): Promise<NearbyPlace[]> {

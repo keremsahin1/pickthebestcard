@@ -52,6 +52,17 @@ export async function searchMerchants(q: string): Promise<Merchant[]> {
   return res.json();
 }
 
+export async function searchPlacesAutocomplete(q: string): Promise<{ name: string; merchantId: number | null; categoryId: number | null; placeId: string }[]> {
+  if (q.length < 2) return [];
+  try {
+    const res = await fetch(`${BASE_URL}/api/places-autocomplete?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    return data.places ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getRecommendations(
   cardIds: number[],
   merchant: string,

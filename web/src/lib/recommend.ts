@@ -76,11 +76,27 @@ export async function getRecommendations(cardIds: number[], merchantQuery: strin
   const merchant = await findMerchant(merchantQuery);
 
   // If user provided a category override for unknown merchants, apply it
+  // and auto-save the merchant to the DB for future lookups
   if (overrideCategoryId && !merchant.merchantId) {
     const [cat] = await sql`SELECT id, name FROM categories WHERE id = ${overrideCategoryId}`;
     if (cat) {
       merchant.categoryId = cat.id;
       merchant.categoryName = cat.name;
+
+      // Auto-save to merchants table so future searches hit the DB directly
+      const existing = await sql`
+        SELECT id FROM merchants WHERE LOWER(name) = ${merchantQuery.trim().toLowerCase()} LIMIT 1
+      `;
+      if (existing.length === 0) {
+        const inserted = await sql`
+          INSERT INTO merchants (name, category_id, is_online)
+          VALUES (${merchantQuery.trim()}, ${cat.id}, ${merchant.isOnline})
+          RETURNING id
+        `;
+        if (inserted.length > 0) merchant.merchantId = inserted[0].id;
+      } else {
+        merchant.merchantId = existing[0].id;
+      }
     }
   }
   const today = new Date().toISOString().split('T')[0];

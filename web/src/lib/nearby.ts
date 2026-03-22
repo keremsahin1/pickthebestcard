@@ -69,7 +69,7 @@ export async function fetchGooglePlaces(lat: number, lng: number): Promise<Googl
         'gas_station', 'pharmacy', 'drugstore', 'hotel',
       ],
       rankPreference: 'DISTANCE',
-      maxResultCount: 5,
+      maxResultCount: 1,
     }),
   });
   if (!res.ok) return [];
@@ -82,6 +82,53 @@ export async function fetchGooglePlaces(lat: number, lng: number): Promise<Googl
     name: p.displayName.text,
     types: p.types ?? [],
   }));
+}
+
+export async function fetchPlacesAutocomplete(query: string): Promise<GooglePlace[]> {
+  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  if (!apiKey || query.length < 2) return [];
+
+  const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+    },
+    body: JSON.stringify({
+      input: query,
+      includedPrimaryTypes: ['establishment'],
+    }),
+  });
+  if (!res.ok) return [];
+
+  const data = await res.json();
+  if (!Array.isArray(data.suggestions)) return [];
+
+  return data.suggestions
+    .filter((s: { placePrediction?: unknown }) => s.placePrediction)
+    .slice(0, 5)
+    .map((s: { placePrediction: { placeId: string; structuredFormat?: { mainText?: { text: string } }; text?: { text: string }; types?: string[] } }) => ({
+      place_id: s.placePrediction.placeId,
+      name: s.placePrediction.structuredFormat?.mainText?.text ?? s.placePrediction.text?.text ?? '',
+      types: s.placePrediction.types ?? [],
+    }));
+}
+
+export async function categorizePlaces(places: GooglePlace[]): Promise<NearbyPlace[]> {
+  const results: NearbyPlace[] = [];
+  for (const place of places) {
+    const categoryName = googleTypesToCategoryName(place.types);
+    const categoryRows = await sql`
+      SELECT id FROM categories WHERE name = ${categoryName} LIMIT 1
+    `;
+    results.push({
+      name: place.name,
+      merchantId: null,
+      categoryId: categoryRows[0]?.id ?? null,
+      placeId: place.place_id,
+    });
+  }
+  return results;
 }
 
 export async function matchAndLogPlaces(places: GooglePlace[]): Promise<NearbyPlace[]> {

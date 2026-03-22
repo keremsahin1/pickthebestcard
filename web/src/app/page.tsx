@@ -43,6 +43,7 @@ export default function Home() {
   const cardRef = useRef<HTMLDivElement>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [googleSuggestions, setGoogleSuggestions] = useState<NearbyPlace[]>([]);
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
   const nearbyFetchedRef = useRef(false);
 
@@ -68,12 +69,23 @@ export default function Home() {
     }
   }, [session]);
 
-  // Merchant autocomplete
+  // Merchant autocomplete — falls back to Google Places when DB has no results
   useEffect(() => {
-    if (merchantQuery.length < 1) { setMerchantSuggestions([]); return; }
+    if (merchantQuery.length < 1) { setMerchantSuggestions([]); setGoogleSuggestions([]); return; }
     const t = setTimeout(() => {
       fetch(`/api/merchants?q=${encodeURIComponent(merchantQuery)}`)
-        .then(r => r.json()).then(setMerchantSuggestions);
+        .then(r => r.json())
+        .then((results: Merchant[]) => {
+          setMerchantSuggestions(results);
+          if (results.length === 0 && merchantQuery.length >= 2) {
+            fetch(`/api/places-autocomplete?q=${encodeURIComponent(merchantQuery)}`)
+              .then(r => r.json())
+              .then(data => setGoogleSuggestions(data.places ?? []))
+              .catch(() => setGoogleSuggestions([]));
+          } else {
+            setGoogleSuggestions([]);
+          }
+        });
     }, 200);
     return () => clearTimeout(t);
   }, [merchantQuery]);
@@ -355,7 +367,7 @@ export default function Home() {
               />
             </div>
 
-            {showMerchantDropdown && (filteredNearby.length > 0 || nearbyLoading || merchantSuggestions.length > 0) && (
+            {showMerchantDropdown && (filteredNearby.length > 0 || nearbyLoading || merchantSuggestions.length > 0 || googleSuggestions.length > 0) && (
               <div className="absolute top-full mt-1 w-full bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-2xl z-10">
                 {/* Nearby section */}
                 {(filteredNearby.length > 0 || nearbyLoading) && (
@@ -390,7 +402,7 @@ export default function Home() {
                     ))}
                   </div>
                 )}
-                {/* Text-search results */}
+                {/* DB text-search results */}
                 {merchantSuggestions.map((m: Merchant) => (
                   <button
                     key={m.id}
@@ -404,6 +416,38 @@ export default function Home() {
                     </div>
                   </button>
                 ))}
+                {/* Google Places fallback */}
+                {googleSuggestions.length > 0 && (
+                  <div>
+                    {merchantSuggestions.length > 0 && (
+                      <div className="px-4 py-1.5 text-xs text-slate-500 font-medium border-t border-slate-700/50">
+                        🔍 More results
+                      </div>
+                    )}
+                    {googleSuggestions.map((place) => (
+                      <button
+                        key={place.placeId}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700 text-left transition-colors"
+                        onClick={() => {
+                          setMerchantQuery(place.name);
+                          if (place.categoryId) setSelectedCategoryId(place.categoryId);
+                          setShowMerchantDropdown(false);
+                          setGoogleSuggestions([]);
+                        }}
+                      >
+                        <span className="text-lg">🔍</span>
+                        <div>
+                          <div className="text-sm font-medium">{place.name}</div>
+                          {place.categoryId && (
+                            <div className="text-xs text-slate-400">
+                              {allCategories.find(c => c.id === place.categoryId)?.name}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

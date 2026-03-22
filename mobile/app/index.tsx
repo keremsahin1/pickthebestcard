@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { fetchCards, fetchCategories, searchMerchants, getRecommendations, fetchUserCards, saveUserCard, deleteUserCard, BASE_URL } from '../lib/api';
+import { fetchCards, fetchCategories, searchMerchants, searchPlacesAutocomplete, getRecommendations, fetchUserCards, saveUserCard, deleteUserCard, BASE_URL } from '../lib/api';
 import type { Card, Merchant, Category } from '../lib/api';
 import { formatReward, sortProtections } from '@pickthebestcard/shared';
 import type { Recommendation, MerchantMatch, Protection } from '@pickthebestcard/shared';
@@ -39,8 +39,10 @@ export default function HomeScreen() {
   const [nearbyPlaces, setNearbyPlaces] = useState<NearbyPlace[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [googleSuggestions, setGoogleSuggestions] = useState<NearbyPlace[]>([]);
   const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
   const nearbyFetchedRef = useRef(false);
+  const merchantFocusedRef = useRef(false);
 
   // Load cards and categories
   useEffect(() => {
@@ -68,11 +70,18 @@ export default function HomeScreen() {
 
 
 
-  // Merchant autocomplete
+  // Merchant autocomplete — falls back to Google Places when DB has no results
   useEffect(() => {
-    if (merchantQuery.length < 1) { setMerchantSuggestions([]); return; }
+    if (merchantQuery.length < 1) { setMerchantSuggestions([]); setGoogleSuggestions([]); return; }
     const timer = setTimeout(() => {
-      searchMerchants(merchantQuery).then(setMerchantSuggestions);
+      searchMerchants(merchantQuery).then((results) => {
+        setMerchantSuggestions(results);
+        if (results.length === 0 && merchantQuery.length >= 2) {
+          searchPlacesAutocomplete(merchantQuery).then(setGoogleSuggestions);
+        } else {
+          setGoogleSuggestions([]);
+        }
+      });
     }, 250);
     return () => clearTimeout(timer);
   }, [merchantQuery]);
@@ -155,6 +164,8 @@ export default function HomeScreen() {
   async function handleMerchantFocus() {
     setShowCardDropdown(false);
     setShowMerchantDropdown(true);
+    merchantFocusedRef.current = true;
+    setTimeout(() => { merchantFocusedRef.current = false; }, 1000);
     if (coordsRef.current) {
       fetchNearby(coordsRef.current.lat, coordsRef.current.lng);
       return;
@@ -177,7 +188,9 @@ export default function HomeScreen() {
 
   const dismissAll = () => {
     setShowCardDropdown(false);
-    setShowMerchantDropdown(false);
+    if (!merchantFocusedRef.current) {
+      setShowMerchantDropdown(false);
+    }
     Keyboard.dismiss();
   };
 
@@ -186,7 +199,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <ScrollView style={s.container} keyboardShouldPersistTaps="handled" onScrollBeginDrag={dismissAll}>
+    <ScrollView style={s.container} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets onScrollBeginDrag={dismissAll}>
       {/* Header */}
       <View style={s.header}>
         <View style={s.headerTop}>
@@ -287,6 +300,39 @@ export default function HomeScreen() {
       {/* Merchant input */}
       <View style={s.section}>
         <Text style={s.label}>Where are you shopping?</Text>
+
+        {/* Nearby chips — shown above input so keyboard doesn't cover them */}
+        {(filteredNearby.length > 0 || nearbyLoading) && (
+          <View style={s.nearbyChipsContainer}>
+            <Text style={s.nearbyHeader}>📍 Nearby</Text>
+            {nearbyLoading && filteredNearby.length === 0 && (
+              <Text style={s.nearbyLoading}>Loading...</Text>
+            )}
+            <View style={s.nearbyChips}>
+              {filteredNearby.map((place) => (
+                <TouchableOpacity
+                  key={place.placeId}
+                  style={s.nearbyChip}
+                  onPress={() => {
+                    setMerchantQuery(place.name);
+                    if (place.categoryId) setSelectedCategoryId(place.categoryId);
+                    setShowMerchantDropdown(false);
+                    setNearbyPlaces([]);
+                    Keyboard.dismiss();
+                  }}
+                >
+                  <Text style={s.nearbyChipText}>📍 {place.name}</Text>
+                  {place.categoryId && (
+                    <Text style={s.nearbyChipSub}>
+                      {categories.find(c => c.id === place.categoryId)?.name}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         <TextInput
           style={s.input}
           placeholder="e.g. Amazon, Costco, Starbucks..."
@@ -304,40 +350,9 @@ export default function HomeScreen() {
           returnKeyType="search"
           onSubmitEditing={() => findBestCard()}
         />
-        {showMerchantDropdown && (filteredNearby.length > 0 || nearbyLoading || merchantSuggestions.length > 0) && (
+        {/* Text-search dropdown — below input */}
+        {showMerchantDropdown && (merchantSuggestions.length > 0 || googleSuggestions.length > 0) && (
           <View style={s.dropdown}>
-            {/* Nearby section */}
-            {(filteredNearby.length > 0 || nearbyLoading) && (
-              <>
-                <Text style={s.nearbyHeader}>📍 Nearby</Text>
-                {nearbyLoading && filteredNearby.length === 0 && (
-                  <Text style={s.nearbyLoading}>Loading...</Text>
-                )}
-                {filteredNearby.map((place) => (
-                  <TouchableOpacity
-                    key={place.placeId}
-                    style={s.dropdownItem}
-                    onPress={() => {
-                      setMerchantQuery(place.name);
-                      if (place.categoryId) setSelectedCategoryId(place.categoryId);
-                      setShowMerchantDropdown(false);
-                      setNearbyPlaces([]);
-                    }}
-                  >
-                    <Text style={s.emoji}>📍</Text>
-                    <View>
-                      <Text style={s.dropdownItemTitle}>{place.name}</Text>
-                      {place.categoryId && (
-                        <Text style={s.dropdownItemSubtitle}>
-                          {categories.find(c => c.id === place.categoryId)?.name}
-                        </Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </>
-            )}
-            {/* Text-search results */}
             {merchantSuggestions.map(m => (
               <TouchableOpacity
                 key={m.id}
@@ -351,6 +366,36 @@ export default function HomeScreen() {
                 </View>
               </TouchableOpacity>
             ))}
+            {/* Google Places fallback */}
+            {googleSuggestions.length > 0 && (
+              <>
+                {merchantSuggestions.length > 0 && (
+                  <Text style={s.nearbyHeader}>🔍 More results</Text>
+                )}
+                {googleSuggestions.map((place) => (
+                  <TouchableOpacity
+                    key={place.placeId}
+                    style={s.dropdownItem}
+                    onPress={() => {
+                      setMerchantQuery(place.name);
+                      if (place.categoryId) setSelectedCategoryId(place.categoryId);
+                      setShowMerchantDropdown(false);
+                      setGoogleSuggestions([]);
+                    }}
+                  >
+                    <Text style={s.emoji}>🔍</Text>
+                    <View>
+                      <Text style={s.dropdownItemTitle}>{place.name}</Text>
+                      {place.categoryId && (
+                        <Text style={s.dropdownItemSub}>
+                          {categories.find(c => c.id === place.categoryId)?.name}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
           </View>
         )}
       </View>
@@ -608,6 +653,14 @@ const s = StyleSheet.create({
   tierBadge: { fontSize: 11, fontWeight: '600', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginLeft: 12, marginBottom: 4, alignSelf: 'flex-start' },
   tierPrimary: { backgroundColor: 'rgba(16,185,129,0.15)', color: '#34d399' },
   tierSecondary: { backgroundColor: 'rgba(100,116,139,0.2)', color: '#94a3b8' },
-  nearbyHeader: { fontSize: 11, color: '#64748b', fontWeight: '600', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 },
-  nearbyLoading: { fontSize: 14, color: '#94a3b8', paddingHorizontal: 12, paddingVertical: 8 },
+  nearbyChipsContainer: { marginBottom: 10 },
+  nearbyChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  nearbyChip: {
+    backgroundColor: '#1e293b', borderRadius: 12, borderWidth: 1,
+    borderColor: '#334155', paddingHorizontal: 12, paddingVertical: 8,
+  },
+  nearbyChipText: { color: '#e2e8f0', fontSize: 13, fontWeight: '500' },
+  nearbyChipSub: { color: '#64748b', fontSize: 11, marginTop: 2 },
+  nearbyHeader: { fontSize: 11, color: '#64748b', fontWeight: '600', marginBottom: 6 },
+  nearbyLoading: { fontSize: 14, color: '#94a3b8', paddingVertical: 8 },
 });

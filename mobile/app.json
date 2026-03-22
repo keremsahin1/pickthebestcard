@@ -24,7 +24,8 @@
             "CFBundleURLName": "google"
           }
         ],
-        "GIDClientID": "517026320231-5qj1rochv8lr6qj3k98q6qh2p6nahhb7.apps.googleusercontent.com"
+        "GIDClientID": "517026320231-5qj1rochv8lr6qj3k98q6qh2p6nahhb7.apps.googleusercontent.com",
+        "NSLocationWhenInUseUsageDescription": "Used to find nearby stores and suggest the best card to use."
       }
     },
     "android": {
@@ -35,14 +36,16 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.pickthebestcard.app"
+      "package": "com.pickthebestcard.app",
+      "permissions": ["ACCESS_COARSE_LOCATION"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      "expo-location"
     ]
   }
 }

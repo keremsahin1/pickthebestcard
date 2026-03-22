@@ -1,7 +1,7 @@
 import type { Recommendation, Protection, MerchantMatch, Merchant, Category } from '@pickthebestcard/shared';
 export type { Recommendation, Protection, MerchantMatch, Merchant, Category };
 
-const BASE_URL = 'https://pickthebestcard.com';
+export const BASE_URL = 'https://pickthebestcard.com';
 
 export interface Card {
   id: number;
@@ -56,7 +56,7 @@ export async function getRecommendations(
   cardIds: number[],
   merchant: string,
   categoryId?: number | null
-): Promise<{ recommendations: Recommendation[]; merchant: MerchantMatch }> {
+): Promise<{ recommendations: Recommendation[]; merchant: MerchantMatch; protections?: Protection[] }> {
   const res = await fetch(`${BASE_URL}/api/recommend`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

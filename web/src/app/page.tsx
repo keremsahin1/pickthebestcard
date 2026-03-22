@@ -169,6 +169,14 @@ export default function Home() {
     }
   }
 
+  function handleSignOut() {
+    setNearbyPlaces([]);
+    setNearbyLoading(false);
+    coordsRef.current = null;
+    nearbyFetchedRef.current = false;
+    signOut();
+  }
+
   function handleMerchantFocus() {
     setShowMerchantDropdown(true);
     if (coordsRef.current) {
@@ -211,7 +219,7 @@ export default function Home() {
                 <div className="text-right">
                   <div className="text-sm font-medium">{session.user?.name?.split(' ')[0]}</div>
                   <button
-                    onClick={() => signOut()}
+                    onClick={handleSignOut}
                     className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
                   >
                     <LogOut className="w-3 h-3" /> Sign out

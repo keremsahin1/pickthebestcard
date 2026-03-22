@@ -31,7 +31,8 @@ jobs:
             FROM merchant_sightings ms
             WHERE NOT EXISTS (
               SELECT 1 FROM merchants m
-              WHERE LOWER(m.name) LIKE LOWER(ms.name)
+              WHERE LOWER(m.name) LIKE '%' || LOWER(ms.name) || '%'
+                 OR LOWER(ms.name) LIKE '%' || LOWER(m.name) || '%'
             )
           `;
 

@@ -1,4 +1,3 @@
-// Placeholder — full implementation in Task 5
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuth } from '@/lib/auth';
 import { resolveUserKey, checkAndIncrementRateLimit, fetchGooglePlaces, matchAndLogPlaces } from '@/lib/nearby';

@@ -66,11 +66,13 @@ export async function matchAndLogPlaces(places: GooglePlace[]): Promise<NearbyPl
   const results: NearbyPlace[] = [];
 
   for (const place of places) {
-    // Try exact/LIKE match against merchants table
+    // Try LIKE match against merchants table (bidirectional: either side can be the substring)
     const likePattern = `%${place.name.toLowerCase()}%`;
+    const googleNameLower = place.name.toLowerCase();
     const merchantRows = await sql`
       SELECT id, category_id FROM merchants
       WHERE LOWER(name) LIKE ${likePattern}
+         OR ${googleNameLower} LIKE '%' || LOWER(name) || '%'
       LIMIT 1
     `;
 

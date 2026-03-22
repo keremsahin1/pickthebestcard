@@ -29,7 +29,8 @@ export async function initSchema() {
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       domain TEXT,
-      category_id INTEGER REFERENCES categories(id)
+      category_id INTEGER REFERENCES categories(id),
+      is_online BOOLEAN NOT NULL DEFAULT false
     )
   `;
   await sql`

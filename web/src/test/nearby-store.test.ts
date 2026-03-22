@@ -113,6 +113,15 @@ describe('resolveUserKey', () => {
     const key = await resolveUserKey(null, 'bad-token', '1.2.3.4');
     expect(key).toMatch(/^anon:[0-9a-f]{16}$/);
   });
+
+  it('returns user:<email> when google token is valid', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ email: 'mobile@example.com' }),
+    });
+    const key = await resolveUserKey(null, 'valid-token', '1.2.3.4');
+    expect(key).toBe('user:mobile@example.com');
+  });
 });
 
 describe('POST /api/nearby-store', () => {

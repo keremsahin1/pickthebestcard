@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { fetchCards, fetchCategories, searchMerchants, getRecommendations, fetchUserCards, saveUserCard, deleteUserCard } from '../lib/api';
+import { fetchCards, fetchCategories, searchMerchants, getRecommendations, fetchUserCards, saveUserCard, deleteUserCard, BASE_URL } from '../lib/api';
 import type { Card, Merchant, Category } from '../lib/api';
 import { formatReward, sortProtections } from '@pickthebestcard/shared';
 import type { Recommendation, MerchantMatch, Protection } from '@pickthebestcard/shared';
@@ -135,7 +135,7 @@ export default function HomeScreen() {
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (user?.accessToken) headers['x-google-token'] = user.accessToken;
-      const res = await fetch('https://pickthebestcard.com/api/nearby-store', {
+      const res = await fetch(`${BASE_URL}/api/nearby-store`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ lat, lng }),
@@ -206,7 +206,17 @@ export default function HomeScreen() {
                     cancelButtonIndex: 1,
                   },
                   idx => {
-                    if (idx === 0) signOutGoogle().then(() => { setUser(null); setSelectedCards([]); setRecommendations(null); setProtections(null); setMerchantQuery(''); });
+                    if (idx === 0) signOutGoogle().then(() => {
+                      setUser(null);
+                      setSelectedCards([]);
+                      setRecommendations(null);
+                      setProtections(null);
+                      setMerchantQuery('');
+                      setNearbyPlaces([]);
+                      setNearbyLoading(false);
+                      coordsRef.current = null;
+                      nearbyFetchedRef.current = false;
+                    });
                   }
                 );
               }}

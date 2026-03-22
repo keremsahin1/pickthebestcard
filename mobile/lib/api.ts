@@ -1,7 +1,7 @@
 import type { Recommendation, Protection, MerchantMatch, Merchant, Category } from '@pickthebestcard/shared';
 export type { Recommendation, Protection, MerchantMatch, Merchant, Category };
 
-const BASE_URL = 'https://pickthebestcard.com';
+export const BASE_URL = 'https://pickthebestcard.com';
 
 export interface Card {
   id: number;

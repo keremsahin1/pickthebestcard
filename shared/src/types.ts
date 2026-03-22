@@ -64,3 +64,10 @@ export interface Category {
   name: string;
   icon: string;
 }
+
+export interface NearbyPlace {
+  name: string;
+  merchantId: number | null;
+  categoryId: number | null;
+  placeId: string;
+}
